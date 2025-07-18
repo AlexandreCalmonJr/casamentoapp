@@ -2,8 +2,8 @@
 
 // Importa os módulos necessários
 import { adminEmails } from './config.js';
-import * as UI from './ui.js';
 import * as Firebase from './firebase-service.js';
+import * as UI from './ui.js';
 
 // Estado da Aplicação
 const appState = {
@@ -161,18 +161,22 @@ function setupViewSpecificListeners() {
     }
     if (appState.currentView === 'guest-photos') {
         const openAuthBtn = document.getElementById('open-auth-button');
-        const logoutBtn = document.getElementById('logout-button');
-        const uploadBtn = document.getElementById('upload-button');
-
+        
         if (openAuthBtn) openAuthBtn.addEventListener('click', () => {
             UI.renderAuthForm('login', appState.accessKey);
             setupAuthFormListeners();
         });
-        if (logoutBtn) logoutBtn.addEventListener('click', () => Firebase.auth.signOut());
-        if (uploadBtn) uploadBtn.addEventListener('click', handlePhotoUploadClick);
 
-        if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
-        appState.galleryUnsubscribe = Firebase.listenToGuestPhotos(UI.renderGuestPhotos);
+        // CORREÇÃO: Apenas escuta por fotos se o usuário estiver logado
+        if (appState.currentUser) {
+            const logoutBtn = document.getElementById('logout-button');
+            const uploadBtn = document.getElementById('upload-button');
+            if(logoutBtn) logoutBtn.addEventListener('click', () => Firebase.auth.signOut());
+            if(uploadBtn) uploadBtn.addEventListener('click', handlePhotoUploadClick);
+
+            if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
+            appState.galleryUnsubscribe = Firebase.listenToGuestPhotos(UI.renderGuestPhotos);
+        }
     }
      if (appState.currentView === 'rsvp') {
         const rsvpForm = document.getElementById('rsvp-form');
