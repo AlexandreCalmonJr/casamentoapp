@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Casamento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <!-- Tela de Login -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-xl shadow-lg text-center max-w-sm w-full">
+            <h1 class="text-2xl font-bold text-gray-700 mb-2">Painel Administrativo</h1>
+            <p class="text-gray-500 mb-6">Login exclusivo para administradores.</p>
+            <button id="google-login-button" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center">
+                <i class="fab fa-google mr-3"></i>Entrar com Google
+            </button>
+            <p id="login-error" class="text-red-500 text-sm mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <!-- Painel Principal (escondido por padrão) -->
+    <div id="admin-dashboard" class="hidden">
+        <header class="bg-white shadow-md">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <h1 class="text-xl font-bold text-gray-800">Admin Casamento</h1>
+                <div>
+                    <span id="admin-email" class="text-sm text-gray-600 mr-4"></span>
+                    <button id="logout-button" class="text-sm text-red-500 hover:underline">Sair</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto p-6">
+            <!-- Abas de Navegação -->
+            <div class="mb-6 border-b border-gray-200">
+                <nav class="flex space-x-8" aria-label="Tabs">
+                    <button data-tab="details" class="tab-button font-medium whitespace-nowrap py-4 px-1 border-b-2 border-blue-600 text-blue-600">
+                        Detalhes do Evento
+                    </button>
+                    <button data-tab="keys" class="tab-button font-medium whitespace-nowrap py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Gerenciar Convites
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Conteúdo das Abas -->
+            <div id="tab-content">
+                <!-- Conteúdo será injetado aqui -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js"></script>
+
+    <script type="module">
+        import { firebaseConfig, adminEmails } from './js/config.js';
+        
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Elementos da DOM
+        const loginScreen = document.getElementById('login-screen');
+        const adminDashboard = document.getElementById('admin-dashboard');
+        const googleLoginBtn = document.getElementById('google-login-button');
+        const logoutBtn = document.getElementById('logout-button');
+        const adminEmailEl = document.getElementById('admin-email');
+        const tabContent = document.getElementById('tab-content');
+        const tabs = document.querySelectorAll('.tab-button');
+        const loginErrorEl = document.getElementById('login-error');
+
+        // Lógica de Autenticação com DEBUG
+        googleLoginBtn.addEventListener('click', () => {
+            console.log("DEBUG: Botão 'Entrar com Google' clicado.");
+            loginErrorEl.classList.add('hidden');
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(error => {
+                console.error("DEBUG: Erro no signInWithPopup:", error);
+                loginErrorEl.textContent = `Erro no Popup: ${error.message}`;
+                loginErrorEl.classList.remove('hidden');
+            });
+        });
+
+        logoutBtn.addEventListener('click', () => auth.signOut());
+
+        auth.onAuthStateChanged(user => {
+            console.log("DEBUG: onAuthStateChanged disparado.");
+            if (user) {
+                console.log("DEBUG: Usuário detectado:", user.email);
+                console.log("DEBUG: Lista de admins:", adminEmails);
+                
+                // Verificação do e-mail (convertendo para minúsculas para segurança)
+                const isAdmin = adminEmails.map(email => email.toLowerCase()).includes(user.email.toLowerCase());
+                console.log(`DEBUG: O usuário ${user.email} é admin? ${isAdmin}`);
+
+                if (isAdmin) {
+                    console.log("DEBUG: Acesso de admin concedido.");
+                    loginScreen.classList.add('hidden');
+                    adminDashboard.classList.remove('hidden');
+                    adminEmailEl.textContent = user.email;
+                    if (!document.querySelector('.tab-button.border-blue-600')) {
+                        loadTab('details');
+                    }
+                } else {
+                    console.warn("DEBUG: Acesso negado. O e-mail não está na lista de administradores.");
+                    loginErrorEl.textContent = "Acesso negado. Este e-mail não é um administrador.";
+                    loginErrorEl.classList.remove('hidden');
+                    auth.signOut(); // Desloga o usuário imediatamente se não for admin
+                }
+            } else {
+                console.log("DEBUG: Nenhum usuário logado. Mostrando tela de login.");
+                loginScreen.classList.remove('hidden');
+                adminDashboard.classList.add('hidden');
+            }
+        });
+
+        // Lógica das Abas
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => loadTab(tab.dataset.tab));
+        });
+
+        function setActiveTab(tabName) {
+            tabs.forEach(tab => {
+                const isSelected = tab.dataset.tab === tabName;
+                tab.classList.toggle('border-blue-600', isSelected);
+                tab.classList.toggle('text-blue-600', isSelected);
+                tab.classList.toggle('border-transparent', !isSelected);
+                tab.classList.toggle('text-gray-500', !isSelected);
+            });
+        }
+
+        function loadTab(tabName) {
+            setActiveTab(tabName);
+            if (tabName === 'details') {
+                renderDetailsEditor();
+            } else if (tabName === 'keys') {
+                renderKeyManager();
+            }
+        }
+
+        // --- Renderizadores de Conteúdo das Abas ---
+
+        async function renderDetailsEditor() {
+            tabContent.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i></div>`;
+            const docRef = db.collection('siteConfig').doc('details');
+            const docSnap = await docRef.get();
+            const details = docSnap.data();
+            const weddingDate = new Date(details.weddingDate.toDate()).toISOString().slice(0, 16);
+
+            tabContent.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
+                    <h2 class="text-xl font-bold mb-4">Editar Detalhes do Casamento</h2>
+                    <form id="details-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium">Nomes do Casal</label>
+                            <input type="text" id="form-couple-names" value="${details.coupleNames}" class="w-full mt-1 p-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Data e Hora</label>
+                            <input type="datetime-local" id="form-wedding-date" value="${weddingDate}" class="w-full mt-1 p-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Local</label>
+                            <input type="text" id="form-venue" value="${details.venue}" class="w-full mt-1 p-2 border rounded">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium">Dress Code</label>
+                            <input type="text" id="form-dress-code" value="${details.dressCode}" class="w-full mt-1 p-2 border rounded">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700">Salvar Alterações</button>
+                        <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
+                    </form>
+                </div>
+            `;
+            document.getElementById('details-form').addEventListener('submit', saveDetails);
+        }
+
+        async function renderKeyManager() {
+            tabContent.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Gerador de Chaves -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">Gerar Novo Convite</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium">Nome do Convidado (ou Família)</label>
+                                <input type="text" id="guest-name" class="w-full mt-1 p-2 border rounded">
+                            </div>
+                            <button id="generate-key-button" class="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700">Gerar Chave</button>
+                        </div>
+                        <div id="key-result" class="mt-4 p-3 bg-gray-50 rounded hidden"></div>
+                    </div>
+                    <!-- Lista de Chaves -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">Convites Gerados</h2>
+                        <div id="keys-list" class="max-h-96 overflow-y-auto">
+                            <p class="text-center p-4"><i class="fas fa-spinner fa-spin text-gray-400"></i> Carregando...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('generate-key-button').addEventListener('click', generateKey);
+            loadKeysList();
+        }
+
+        // --- Funções de Lógica do Admin ---
+
+        async function saveDetails(e) {
+            e.preventDefault();
+            const successMsg = document.getElementById('details-success');
+            const updatedDetails = {
+                coupleNames: document.getElementById('form-couple-names').value,
+                weddingDate: new Date(document.getElementById('form-wedding-date').value),
+                venue: document.getElementById('form-venue').value,
+                dressCode: document.getElementById('form-dress-code').value,
+            };
+            await db.collection('siteConfig').doc('details').update(updatedDetails);
+            successMsg.classList.remove('hidden');
+            setTimeout(() => successMsg.classList.add('hidden'), 3000);
+        }
+
+        async function generateKey() {
+            const guestName = document.getElementById('guest-name').value.trim();
+            if (!guestName) return;
+            
+            const newKey = 'AS' + Math.random().toString(36).substring(2, 10).toUpperCase();
+            await db.collection('accessKeys').add({
+                key: newKey,
+                guestName: guestName,
+                isUsed: false,
+                usedByEmail: null,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            const resultEl = document.getElementById('key-result');
+            resultEl.innerHTML = `
+                <p class="text-sm">Chave para <strong>${guestName}</strong>:</p>
+                <p class="font-mono text-lg">${newKey}</p>
+            `;
+            resultEl.classList.remove('hidden');
+            document.getElementById('guest-name').value = '';
+            loadKeysList(); // Recarrega a lista
+        }
+
+        function loadKeysList() {
+            const listEl = document.getElementById('keys-list');
+            db.collection('accessKeys').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+                if (snapshot.empty) {
+                    listEl.innerHTML = `<p class="text-center text-gray-500 p-4">Nenhuma chave gerada.</p>`;
+                    return;
+                }
+                const keysHTML = snapshot.docs.map(doc => {
+                    const key = doc.data();
+                    const usedClass = key.isUsed ? 'bg-green-100' : 'bg-yellow-100';
+                    const usedText = key.isUsed ? `Usado por ${key.usedByEmail}` : 'Não utilizado';
+                    return `
+                        <div class="p-3 border-b flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${key.guestName}</p>
+                                <p class="text-sm font-mono text-gray-600">${key.key}</p>
+                            </div>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full ${usedClass}">${usedText}</span>
+                        </div>
+                    `;
+                }).join('');
+                listEl.innerHTML = keysHTML;
+            });
+        }
+    </script>
+</body>
+</html>

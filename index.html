@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nosso Casamento - Andressa & Alexandre</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Script de Configuração do Tailwind (CORREÇÃO) -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        secondary: '#F6BFB3',
+                        accent: '#FFD166',
+                        dark: {
+                            primary: '#8180E2',
+                            background: '#181818',
+                            card: '#282828'
+                        },
+                        light: {
+                            background: '#F7F7F7',
+                            card: '#FFFFFF'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                        cursive: ['Dancing Script', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom Styles -->
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="bg-light-background dark:bg-dark-background text-gray-800 dark:text-gray-200 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- Tela de Carregamento Inicial -->
+    <div id="loading-screen" class="fixed inset-0 bg-light-background dark:bg-dark-background z-50 flex items-center justify-center">
+        <div class="text-center">
+            <i class="fas fa-heart text-primary dark:text-dark-primary text-5xl heart-float mb-4"></i>
+            <h1 id="loading-title" class="text-3xl font-cursive mb-2"></h1>
+            <p class="text-gray-600 dark:text-gray-400">Carregando os detalhes...</p>
+        </div>
+    </div>
+    
+    <!-- Modal de Autenticação (Login/Cadastro) -->
+    <div id="auth-modal" class="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center p-4 hidden">
+        <div id="auth-card" class="bg-light-card dark:bg-dark-card rounded-xl shadow-lg w-full max-w-sm p-6 relative">
+            <button id="close-auth-modal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fas fa-times fa-lg"></i>
+            </button>
+            <div id="auth-form-container">
+                <!-- Formulário de login/cadastro injetado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Principal do Aplicativo -->
+    <div id="app-container" class="flex flex-col h-screen opacity-0 transition-opacity duration-300">
+        <!-- Navegação Superior -->
+        <header class="border-b border-gray-200 dark:border-gray-800 bg-light-card dark:bg-dark-card shadow-sm sticky top-0 z-30">
+            <div class="flex items-center justify-between px-4 py-3 max-w-screen-lg mx-auto">
+                <div id="page-title" class="font-cursive text-2xl text-primary dark:text-dark-primary"></div>
+                <div class="flex items-center space-x-4">
+                    <!-- Container para ações do usuário (Login/Logout/Admin) -->
+                    <div id="user-actions-container" class="flex items-center space-x-4"></div>
+                    <button id="toggle-dark-mode" class="text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-dark-primary">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Área de Conteúdo Principal -->
+        <main class="flex-1 overflow-auto custom-scrollbar">
+            <div id="main-content" class="max-w-screen-lg mx-auto px-4 py-6 pb-24">
+                <!-- Conteúdo da seção carregado via JS -->
+            </div>
+        </main>
+        
+        <!-- Navegação Inferior -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-light-card dark:bg-dark-card border-t border-gray-200 dark:border-gray-800 shadow-lg">
+            <div class="flex justify-around max-w-screen-lg mx-auto">
+                <button data-view="home" class="nav-button flex-1 py-3 px-2 text-center">
+                    <i class="fas fa-home text-xl"></i><span class="block text-xs mt-1">Início</span>
+                </button>
+                <button data-view="details" class="nav-button flex-1 py-3 px-2 text-center">
+                    <i class="fas fa-info-circle text-xl"></i><span class="block text-xs mt-1">Detalhes</span>
+                </button>
+                <button data-view="guest-photos" class="nav-button flex-1 py-3 px-2 text-center">
+                    <i class="fas fa-camera-retro text-xl"></i><span class="block text-xs mt-1">Fotos</span>
+                </button>
+                <button data-view="rsvp" class="nav-button flex-1 py-3 px-2 text-center">
+                    <i class="fas fa-envelope text-xl"></i><span class="block text-xs mt-1">RSVP</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-storage-compat.js"></script>
+    
+    <!-- Scripts Modulares da Aplicação -->
+    <script type="module" src="js/app.js"></script>
+
+</body>
+</html>

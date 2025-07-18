@@ -1,0 +1,40 @@
+/* Importação de Fontes do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;500;700&family=Playfair+Display:wght@400;600&display=swap');
+
+/* Configuração de Cores e Fontes via Variáveis CSS */
+:root {
+    --color-primary: #5D5CDE;
+    --color-secondary: #F6BFB3;
+    --font-sans: 'Inter', sans-serif;
+    --font-serif: 'Playfair Display', serif;
+    --font-cursive: 'Dancing Script', cursive;
+}
+
+body {
+    font-family: var(--font-sans);
+}
+
+.font-cursive { font-family: var(--font-cursive); }
+.font-serif { font-family: var(--font-serif); }
+
+/* Estilos para a barra de rolagem */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(93, 92, 222, 0.5);
+    border-radius: 3px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(129, 128, 226, 0.5);
+}
+
+/* Animações */
+.heart-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
