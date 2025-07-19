@@ -1,11 +1,5 @@
 // js/ui.js
 
-// Seletores da DOM
-const mainContent = document.getElementById('main-content');
-const authModal = document.getElementById('auth-modal');
-const authFormContainer = document.getElementById('auth-form-container');
-const navButtons = document.querySelectorAll('.nav-button');
-
 /**
  * Gera o HTML para uma view específica.
  * @param {string} viewName - O nome da view ('home', 'details', etc.).
@@ -46,11 +40,11 @@ export function generateViewHTML(viewName, user, weddingDetails) {
             return `
                 <div class="space-y-6">
                     <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>
-                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
-                        ${user ? `
+                    ${user ? `
+                        <!-- Conteúdo para usuários logados -->
+                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
                             <div class="text-center mb-6">
                                 <p class="mb-2">Olá, ${user.displayName}! Compartilhe seus registros.</p>
-                                <button id="logout-button" class="text-sm text-red-500 hover:underline">Sair</button>
                             </div>
                             <div class="flex flex-col sm:flex-row items-center gap-4">
                                 <input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/>
@@ -58,28 +52,87 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                             </div>
                             <div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div>
                             <p id="upload-error" class="text-red-500 text-sm mt-2 hidden"></p>
+                        </div>
+                        <!-- Caça ao Tesouro Fotográfica (só para logados) -->
+                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                            <h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2>
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">Ajude-nos a registrar todos os momentos! Tente capturar:</p>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                                <li>Uma foto com alguém que você acabou de conhecer</li>
+                                <li>Uma foto do seu detalhe favorito da decoração</li>
+                                <li>Uma selfie com os noivos</li>
+                                <li>A foto mais divertida da pista de dança</li>
+                            </ul>
+                        </div>
+                    ` : `
+                        <!-- Mensagem para usuários deslogados -->
+                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center">
+                            <i class="fas fa-lock text-3xl text-gray-400 mb-4"></i>
+                            <h2 class="text-xl font-medium mb-2">Galeria Exclusiva</h2>
+                            <p class="text-gray-600 dark:text-gray-400">Para ver e enviar fotos, por favor, faça o login na aba "Acesso".</p>
+                        </div>
+                    `}
+                    <div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+                </div>`;
+        case 'guestbook':
+            return `
+                <div class="space-y-6">
+                    <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Mural de Recados</h1></div>
+                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                        ${user ? `
+                            <h2 class="text-xl font-medium mb-4">Deixe sua mensagem de carinho</h2>
+                            <form id="guestbook-form" class="space-y-4">
+                                <textarea id="guestbook-message" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600" rows="4" placeholder="Escreva sua mensagem aqui..." required></textarea>
+                                <button type="submit" class="w-full py-2 bg-primary text-white rounded">Enviar Mensagem</button>
+                                <p id="guestbook-error" class="text-red-500 text-sm hidden"></p>
+                            </form>
                         ` : `
                             <div class="text-center">
-                                <p class="mb-4">Para enviar fotos e ver a galeria, por favor, acesse com sua chave.</p>
-                                <button id="open-auth-button" class="w-full py-2 px-4 bg-primary hover:bg-opacity-90 text-white font-medium rounded-lg">Login / Cadastro com Chave</button>
+                                <p class="mb-4">Faça login para deixar uma mensagem no nosso mural de recados!</p>
+                                <button id="open-login-button" class="w-full py-2 px-4 bg-primary hover:bg-opacity-90 text-white font-medium rounded-lg">Fazer Login</button>
                             </div>
                         `}
                     </div>
-                    <div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+                    <div id="guestbook-messages" class="space-y-4">
+                        <!-- Mensagens serão carregadas aqui -->
+                    </div>
                 </div>`;
-        case 'rsvp':
-            const rsvpDateFormatted = weddingDetails.rsvpDate.toLocaleDateString('pt-BR', { month: 'long', day: 'numeric' });
+        case 'gifts':
             return `
-                <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Confirme sua Presença</h1></div>
-                <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 max-w-lg mx-auto">
-                    <form id="rsvp-form" class="space-y-4">
-                        <p class="text-center text-gray-600 dark:text-gray-400">Por favor, responda até ${rsvpDateFormatted}.</p>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Completo</label>
-                            <input type="text" class="w-full mt-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800" required>
+                <div class="space-y-6">
+                    <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Lista de Presentes</h1></div>
+                    ${user ? `
+                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                            <p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sua presença é o nosso maior presente! Mas se desejar nos presentear, preparamos com carinho esta lista de sugestões.</p>
+                            <div id="gift-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Lista de presentes será carregada aqui -->
+                            </div>
                         </div>
-                        <button type="submit" class="w-full py-3 px-4 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-lg">Enviar Confirmação</button>
-                    </form>
+                    ` : `
+                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center">
+                            <i class="fas fa-lock text-3xl text-gray-400 mb-4"></i>
+                            <h2 class="text-xl font-medium mb-2">Lista Exclusiva</h2>
+                            <p class="text-gray-600 dark:text-gray-400">Para ver nossa lista de presentes, por favor, faça o login na aba "Acesso".</p>
+                        </div>
+                    `}
+                </div>`;
+        case 'rsvp': // Agora é a tela de Acesso
+            return `
+                <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Acesso dos Convidados</h1></div>
+                <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 max-w-lg mx-auto text-center">
+                    ${user ? `
+                        <i class="fas fa-check-circle text-green-500 text-4xl mb-4"></i>
+                        <h2 class="text-xl font-medium mb-2">Você já está logado!</h2>
+                        <p class="text-gray-600 dark:text-gray-400">Olá, ${user.displayName}. Você já pode interagir com o site.</p>
+                    ` : `
+                        <i class="fas fa-key text-3xl text-gray-400 mb-4"></i>
+                        <h2 class="text-xl font-medium mb-2">Área Exclusiva</h2>
+                        <p class="text-gray-600 dark:text-gray-400 mb-6">Use sua chave de acesso para se cadastrar ou faça login para participar.</p>
+                        <div class="space-y-3">
+                            <button id="open-signup-button" class="w-full py-3 px-4 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-lg">Cadastrar com Chave de Acesso</button>
+                            <button id="open-login-button" class="w-full py-2 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg">Já tenho conta (Login)</button>
+                        </div>
+                    `}
                 </div>`;
         default:
             return `<p>Página não encontrada.</p>`;
@@ -93,6 +146,7 @@ export function generateViewHTML(viewName, user, weddingDetails) {
  * @param {Object} weddingDetails - Os detalhes do casamento.
  */
 export function renderView(viewName, user, weddingDetails) {
+    const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = generateViewHTML(viewName, user, weddingDetails);
     updateNavButtons(viewName);
 }
@@ -102,6 +156,7 @@ export function renderView(viewName, user, weddingDetails) {
  * @param {string} activeView - A view que está ativa.
  */
 function updateNavButtons(activeView) {
+    const navButtons = document.querySelectorAll('.nav-button');
     navButtons.forEach(btn => {
         const isActive = btn.dataset.view === activeView;
         btn.classList.toggle('text-primary', isActive);
@@ -146,7 +201,10 @@ export function updateCountdown(weddingDate) {
  * @param {string} type - 'login' ou 'signup'.
  * @param {string} accessKey - Chave de acesso (opcional).
  */
-export function renderAuthForm(type, accessKey = '') {
+export function renderAuthForm(type, accessKey = '', keyData = null) {
+    const authFormContainer = document.getElementById('auth-form-container');
+    const authModal = document.getElementById('auth-modal');
+    
     authFormContainer.innerHTML = type === 'login' ? `
         <h2 class="text-2xl font-serif mb-4 text-center">Login</h2>
         <form id="login-form" class="space-y-4">
@@ -156,20 +214,45 @@ export function renderAuthForm(type, accessKey = '') {
             <button type="submit" class="w-full py-2 bg-primary text-white rounded">Entrar</button>
             <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se com uma chave</button></p>
         </form>
+        <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b"><p class="text-center text-xs mx-4">OU</p></div>
+        <button id="google-login-modal-button" class="w-full py-2 bg-blue-600 text-white rounded flex items-center justify-center"><i class="fab fa-google mr-2"></i>Entrar com Google</button>
     ` : `
         <h2 class="text-2xl font-serif mb-4 text-center">Cadastro de Convidado</h2>
         <form id="signup-form" class="space-y-4">
             <div><label class="block text-sm">Chave de Acesso</label><input type="text" id="signup-key" value="${accessKey}" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required ${accessKey ? 'readonly' : ''}></div>
-            <div><label class="block text-sm">Seu Nome</label><input type="text" id="signup-name" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
-            <div><label class="block text-sm">Email</label><input type="email" id="signup-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
+            <div id="guest-names-container"></div> <!-- Campos para nomes dos convidados -->
+            <div><label class="block text-sm">Seu Email</label><input type="email" id="signup-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <div><label class="block text-sm">Crie uma Senha</label><input type="password" id="signup-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <p id="auth-error" class="text-red-500 text-sm hidden"></p>
-            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Cadastrar</button>
+            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Confirmar Presença e Cadastrar</button>
             <p class="text-sm text-center">Já tem conta? <button type="button" id="show-login" class="text-primary font-semibold">Faça login</button></p>
         </form>
     `;
     authModal.classList.remove('hidden');
+
+    if (type === 'signup' && keyData) {
+        generateGuestNameInputs(keyData.allowedGuests);
+    }
 }
+
+/**
+ * Gera os campos de input para os nomes dos convidados.
+ * @param {number} count - O número de campos a serem gerados.
+ */
+function generateGuestNameInputs(count) {
+    const container = document.getElementById('guest-names-container');
+    if (!container) return;
+    container.innerHTML = `<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Por favor, confirme os nomes dos convidados:</label>`;
+    for (let i = 0; i < count; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'guest-name-input w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600';
+        input.placeholder = `Nome do Convidado ${i + 1}`;
+        input.required = true;
+        container.appendChild(input);
+    }
+}
+
 
 /**
  * Renderiza as fotos na galeria.
@@ -191,9 +274,70 @@ export function renderGuestPhotos(photos) {
 }
 
 /**
+ * Renderiza as mensagens no mural de recados.
+ * @param {Array<Object>} messages - A lista de mensagens.
+ */
+export function renderGuestbookMessages(messages) {
+    const container = document.getElementById('guestbook-messages');
+    if (!container) return;
+
+    if (messages.length === 0) {
+        container.innerHTML = `<p class="text-center text-gray-500">Ainda não há mensagens. Seja o primeiro!</p>`;
+    } else {
+        container.innerHTML = messages.map(msg => `
+            <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-4">
+                <p class="text-gray-800 dark:text-gray-200">${msg.message}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 text-right mt-2">- ${msg.userName}</p>
+            </div>
+        `).join('');
+    }
+}
+
+/**
+ * Renderiza a lista de presentes.
+ * @param {Array<Object>} gifts - A lista de presentes.
+ * @param {firebase.User} currentUser - O usuário logado.
+ */
+export function renderGiftList(gifts, currentUser) {
+    const container = document.getElementById('gift-list-container');
+    if (!container) return;
+
+    if (gifts.length === 0) {
+        container.innerHTML = `<p class="col-span-full text-center text-gray-500">Nossa lista de presentes está sendo preparada com carinho. Volte em breve!</p>`;
+        return;
+    }
+
+    container.innerHTML = gifts.map(gift => {
+        const isTaken = gift.isTaken;
+        const isTakenByMe = isTaken && gift.takenBy === currentUser.displayName;
+
+        return `
+            <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all ${isTaken && !isTakenByMe ? 'opacity-50' : ''}">
+                <div>
+                    <img src="${gift.imageUrl || 'https://placehold.co/400x300/EEE/31343C?text=Presente'}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description}</p>
+                </div>
+                <div class="mt-4">
+                    ${isTaken 
+                        ? (isTakenByMe 
+                            ? `<button data-id="${gift.id}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>`
+                            : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`
+                          )
+                        : `<button data-id="${gift.id}" class="mark-gift-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90">Quero presentear</button>`
+                    }
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+
+/**
  * Mostra ou esconde o modal de autenticação.
  * @param {boolean} show - True para mostrar, false para esconder.
  */
 export function toggleAuthModal(show) {
+    const authModal = document.getElementById('auth-modal');
     authModal.classList.toggle('hidden', !show);
 }

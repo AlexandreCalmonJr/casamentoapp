@@ -20,3 +20,11 @@ export const adminEmails = [
     'alexandrecalmonjunior@gmail.com', 
     'andressarsl24@gmail.com'
 ];
+
+// =======================================================================
+// == CONFIGURAÇÃO DO CLOUDINARY                                       ==
+// =======================================================================
+export const cloudinaryConfig = {
+  cloudName: "dpf74cwy6", // Cole aqui o Cloud Name do seu dashboard
+  uploadPreset: "gvak7idl" // Cole aqui o nome do seu Upload Preset não assinado
+};
