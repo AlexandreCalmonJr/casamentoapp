@@ -17,6 +17,65 @@ const appState = {
     weddingDetails: null // Detalhes virão do DB
 };
 
+// --- Funções de Melhoria e Utilitários ---
+
+/**
+ * Gerencia o dark mode, salvando a preferência do usuário no localStorage.
+ */
+function initializeDarkMode() {
+    // Verifica preferência salva ou do sistema
+    const isDarkMode = localStorage.getItem('darkMode') === 'true' ||
+        (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    
+    if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+    }
+    
+    document.getElementById('toggle-dark-mode')?.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('darkMode', isDark.toString());
+    });
+}
+
+/**
+ * Cancela todos os listeners do Firestore e intervalos para evitar vazamentos de memória.
+ */
+function cleanupListeners() {
+    // Cancela listeners específicos do Firestore
+    if (appState.galleryUnsubscribe) {
+        appState.galleryUnsubscribe();
+        appState.galleryUnsubscribe = null;
+    }
+    if (appState.guestbookUnsubscribe) {
+        appState.guestbookUnsubscribe();
+        appState.guestbookUnsubscribe = null;
+    }
+    if (appState.giftListUnsubscribe) {
+        appState.giftListUnsubscribe();
+        appState.giftListUnsubscribe = null;
+    }
+    if (appState.countdownInterval) {
+        clearInterval(appState.countdownInterval);
+        appState.countdownInterval = null;
+    }
+}
+
+/**
+ * Wrapper para a validação de chave com tratamento de erro.
+ * @param {string} key - A chave de acesso.
+ * @returns {Promise<Object>}
+ */
+async function handleAccessKeyValidation(key) {
+    try {
+        const result = await Firebase.validateAccessKey(key);
+        return result;
+    } catch (error) {
+        console.error('Erro ao validar chave:', error);
+        return { isValid: false, isUsed: false, data: null, error: 'Erro na validação' };
+    }
+}
+
+
 // --- Funções de Manipulação de Eventos ---
 
 function handleNavigation(event) {
@@ -52,42 +111,70 @@ async function handleLoginSubmit(event) {
 async function handleSignupSubmit(event) {
     event.preventDefault();
     const key = document.getElementById('signup-key').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
     const errorEl = document.getElementById('auth-error');
+    
     errorEl.classList.add('hidden');
 
+    // Validações básicas
     if (!key) {
         errorEl.textContent = "A chave de acesso é obrigatória.";
         return errorEl.classList.remove('hidden');
     }
-
-    const { isValid, isUsed, docId, data } = await Firebase.validateAccessKey(key);
-
-    if (!isValid) {
-        errorEl.textContent = "Chave de acesso inválida.";
+    if (!email) {
+        errorEl.textContent = "O email é obrigatório.";
         return errorEl.classList.remove('hidden');
     }
-    if (isUsed) {
-        errorEl.textContent = "Esta chave de acesso já foi utilizada.";
+    if (password.length < 6) {
+        errorEl.textContent = "A senha deve ter pelo menos 6 caracteres.";
         return errorEl.classList.remove('hidden');
     }
 
+    // Validar nomes dos convidados
     const guestNameInputs = document.querySelectorAll('.guest-name-input');
-    const guestNames = Array.from(guestNameInputs).map(input => input.value);
-    const mainGuestName = guestNames[0] || '';
-    const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked').value === 'yes';
+    const guestNames = Array.from(guestNameInputs).map(input => input.value.trim()).filter(name => name);
+    
+    if (guestNames.length === 0) {
+        errorEl.textContent = "Pelo menos um nome de convidado é obrigatório.";
+        return errorEl.classList.remove('hidden');
+    }
 
     try {
+        const { isValid, isUsed, docId, data, error } = await handleAccessKeyValidation(key);
+
+        if (error) {
+            errorEl.textContent = "Erro ao verificar a chave de acesso.";
+            return errorEl.classList.remove('hidden');
+        }
+        if (!isValid) {
+            errorEl.textContent = "Chave de acesso inválida.";
+            return errorEl.classList.remove('hidden');
+        }
+        if (isUsed) {
+            errorEl.textContent = "Esta chave de acesso já foi utilizada.";
+            return errorEl.classList.remove('hidden');
+        }
+
+        const mainGuestName = guestNames[0];
+        const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked')?.value === 'yes';
+
         await Firebase.signupUser({
             name: mainGuestName,
-            email: document.getElementById('signup-email').value,
-            password: document.getElementById('signup-password').value,
+            email: email,
+            password: password,
             keyDocId: docId,
             guestNames: guestNames,
             willAttendRestaurant: willAttendRestaurant
         });
     } catch (error) {
+        console.error('Erro no cadastro:', error);
         if (error.code === 'auth/email-already-in-use') {
             errorEl.textContent = "Este email já está cadastrado.";
+        } else if (error.code === 'auth/weak-password') {
+            errorEl.textContent = "Senha muito fraca. Use pelo menos 6 caracteres.";
+        } else if (error.code === 'auth/invalid-email') {
+            errorEl.textContent = "Email inválido.";
         } else {
             errorEl.textContent = "Erro ao criar a conta. Verifique os dados.";
         }
@@ -182,13 +269,9 @@ function setupAuthFormListeners() {
 }
 
 function setupViewSpecificListeners() {
-    // Cancela listeners antigos para evitar duplicação
-    if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
-    if (appState.guestbookUnsubscribe) appState.guestbookUnsubscribe();
-    if (appState.giftListUnsubscribe) appState.giftListUnsubscribe();
+    cleanupListeners();
 
     if (appState.currentView === 'home' && appState.weddingDetails) {
-        if (appState.countdownInterval) clearInterval(appState.countdownInterval);
         appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
     }
     if (appState.currentView === 'guest-photos') {
@@ -212,20 +295,18 @@ function setupViewSpecificListeners() {
             const guestbookForm = document.getElementById('guestbook-form');
             if(guestbookForm) guestbookForm.addEventListener('submit', handleGuestbookSubmit);
         }
-        // Todos podem ver os recados, mesmo deslogados
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
     if (appState.currentView === 'gifts') {
         if (appState.currentUser) {
             appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
                 UI.renderGiftList(gifts, appState.currentUser);
-                // Adiciona listeners aos botões da lista de presentes
                 document.querySelectorAll('.mark-gift-btn').forEach(btn => btn.addEventListener('click', (e) => Firebase.markGiftAsTaken(e.target.dataset.id, appState.currentUser)));
                 document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', (e) => Firebase.unmarkGiftAsTaken(e.target.dataset.id)));
             });
         }
     }
-     if (appState.currentView === 'rsvp') {
+    if (appState.currentView === 'rsvp') {
         const openLoginBtn = document.getElementById('open-login-button');
         const openSignupBtn = document.getElementById('open-signup-button');
 
@@ -240,7 +321,7 @@ function setupViewSpecificListeners() {
             openSignupBtn.addEventListener('click', async () => {
                 const key = prompt("Por favor, insira sua chave de acesso para iniciar o cadastro:");
                 if (key) {
-                    const { isValid, isUsed, data } = await Firebase.validateAccessKey(key.trim());
+                    const { isValid, isUsed, data } = await handleAccessKeyValidation(key.trim());
                     if (isValid && !isUsed) {
                         UI.renderAuthForm('signup', key.trim(), data);
                         setupAuthFormListeners();
@@ -252,6 +333,21 @@ function setupViewSpecificListeners() {
                 }
             });
         }
+
+        // NOVO: Se temos uma chave válida no URL, abrir automaticamente o modal de cadastro
+        if (appState.accessKey) {
+            setTimeout(async () => {
+                const { isValid, isUsed, data } = await handleAccessKeyValidation(appState.accessKey);
+                if (isValid && !isUsed) {
+                    UI.renderAuthForm('signup', appState.accessKey, data);
+                    setupAuthFormListeners();
+                } else if (isUsed) {
+                    alert("Esta chave de acesso já foi utilizada.");
+                } else {
+                    alert("Chave de acesso inválida.");
+                }
+            }, 100);
+        }
     }
 }
 
@@ -262,18 +358,12 @@ function renderCurrentView() {
     setupViewSpecificListeners();
 }
 
-/**
- * Atualiza a área do usuário no cabeçalho (Login/Logout/Admin).
- * @param {firebase.User|null} user - O usuário autenticado.
- */
 function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
     if (!container) return;
-
-    container.innerHTML = ''; // Limpa a área
+    container.innerHTML = ''; 
 
     if (user) {
-        // --- USUÁRIO LOGADO ---
         const welcomeText = document.createElement('span');
         welcomeText.className = 'text-sm text-gray-600 dark:text-gray-300 hidden sm:inline';
         const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Convidado';
@@ -287,7 +377,6 @@ function updateUserArea(user) {
 
         container.appendChild(welcomeText);
 
-        // Adiciona botão de admin se for admin
         if (adminEmails.includes(user.email)) {
             const adminButton = document.createElement('a');
             adminButton.href = 'admin.html';
@@ -301,7 +390,6 @@ function updateUserArea(user) {
         container.appendChild(logoutButton);
 
     } else {
-        // --- USUÁRIO DESLOGADO (BOTÃO DE LOGIN ADMIN) ---
         const adminLoginLink = document.createElement('a');
         adminLoginLink.href = 'admin.html';
         adminLoginLink.className = 'text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-dark-primary flex items-center';
@@ -312,65 +400,56 @@ function updateUserArea(user) {
 }
 
 async function initApp() {
-    // Busca os detalhes do casamento do Firestore
-    appState.weddingDetails = await Firebase.getWeddingDetails();
-    if (!appState.weddingDetails) {
-        document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento. Verifique a configuração do Firestore.</div>`;
-        return;
-    }
-
-    // Preenche títulos iniciais
-    document.getElementById('loading-title').textContent = appState.weddingDetails.coupleNames;
-    document.getElementById('page-title').textContent = appState.weddingDetails.coupleNames;
-
-    // Configura listeners globais
-    document.getElementById('toggle-dark-mode').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
-    document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
-    setupNavListeners();
-
-    // Flag para controlar o fluxo de carregamento inicial com chave
-    let isInitialLoadWithKey = false;
-
-    // Captura chave da URL
-    const urlParams = new URLSearchParams(window.location.search);
-    appState.accessKey = urlParams.get('key');
-    if (appState.accessKey) {
-        const { isValid, isUsed, data } = await Firebase.validateAccessKey(appState.accessKey);
-        if (isValid && !isUsed) {
-            isInitialLoadWithKey = true; // Sinaliza que o modal será o foco
-            UI.renderAuthForm('signup', appState.accessKey, data);
-            setupAuthFormListeners();
-        } else {
-            alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
-            window.history.replaceState({}, document.title, window.location.pathname); // Limpa a URL
+    try {
+        appState.weddingDetails = await Firebase.getWeddingDetails();
+        if (!appState.weddingDetails) {
+            document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento. Verifique a configuração do Firestore.</div>`;
+            return;
         }
-    }
-    
-    // Listener de estado de autenticação
-    Firebase.auth.onAuthStateChanged(user => {
-        appState.currentUser = user;
-        UI.toggleAuthModal(false);
-        updateUserArea(user);
+
+        const loadingTitle = document.getElementById('loading-title');
+        const pageTitle = document.getElementById('page-title');
+        if (loadingTitle) loadingTitle.textContent = appState.weddingDetails.coupleNames;
+        if (pageTitle) pageTitle.textContent = appState.weddingDetails.coupleNames;
+
+        initializeDarkMode();
         
-        // Se não for o carregamento inicial com uma chave, renderiza a view normalmente.
-        // Isso evita que a 'home' seja renderizada por cima do modal de cadastro.
-        if (!isInitialLoadWithKey) {
-            renderCurrentView();
+        document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
+        setupNavListeners();
+
+        // Verificar se existe uma chave de acesso no URL
+        const urlParams = new URLSearchParams(window.location.search);
+        appState.accessKey = urlParams.get('key');
+        
+        // Se tem chave válida, redirecionar para RSVP
+        if (appState.accessKey) {
+            const { isValid, isUsed } = await handleAccessKeyValidation(appState.accessKey);
+            if (isValid && !isUsed) {
+                appState.currentView = 'rsvp'; // MUDAR PARA RSVP EM VEZ DE FICAR NA HOME
+            } else {
+                alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
+                window.history.replaceState({}, document.title, window.location.pathname);
+                appState.accessKey = null;
+            }
         }
         
-        // Reseta o flag após a primeira execução para que o comportamento normal seja restaurado.
-        isInitialLoadWithKey = false;
-    });
-
-    // Esconde loading e mostra o app
-    setTimeout(() => {
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('opacity-0');
-        // Renderiza a view 'home' se o modal de chave não foi aberto
-        if (!isInitialLoadWithKey) {
+        Firebase.auth.onAuthStateChanged(user => {
+            appState.currentUser = user;
+            UI.toggleAuthModal(false);
+            updateUserArea(user);
             renderCurrentView();
-        }
-    }, 500);
+        });
+
+        setTimeout(() => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('opacity-0');
+            renderCurrentView(); // Renderizar a view atual (home ou rsvp se tem chave)
+        }, 500);
+
+    } catch (error) {
+        console.error('Erro na inicialização:', error);
+        document.body.innerHTML = `<div class="text-center p-8">Erro ao inicializar a aplicação. Recarregue a página.</div>`;
+    }
 }
 
 initApp();
