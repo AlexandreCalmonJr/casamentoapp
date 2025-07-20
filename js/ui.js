@@ -133,7 +133,7 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                                 <li>Uma foto com alguém que você acabou de conhecer</li>
                                 <li>Uma foto do seu detalhe favorito da decoração</li>
                                 <li>Uma selfie com os noivos</li>
-                                <li>A foto mais divertida da pista de dança</li>
+                                <li>A foto mais divertida do casamento!</li>
                             </ul>
                         </div>
                     ` : `
