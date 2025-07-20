@@ -1,8 +1,8 @@
 // js/admin-app.js
 
 import * as UI from './admin-ui.js';
-import { adminEmails } from './config.js';
 import { auth, db } from './firebase-service.js';
+import { adminEmails } from './js/config.js';
 
 // --- Estado da Aplicação Admin ---
 const adminState = {
