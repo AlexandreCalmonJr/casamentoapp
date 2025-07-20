@@ -301,8 +301,8 @@ async function loadTab(tabName) {
 }
 
 function showShareModal(guestName, key, allowedGuests, phone) {
-    // CORREÇÃO: A URL base do site agora está correta.
-    const siteBaseUrl = 'https://casamentoa2.vercel.app/';
+    // CORREÇÃO: URL corrigida para o domínio atual
+    const siteBaseUrl = 'https://casamentoa2.vercel.app';
     const fullLink = `${siteBaseUrl}?key=${key}`;
 
     document.getElementById('modal-guest-name').textContent = guestName;
@@ -317,8 +317,15 @@ function showShareModal(guestName, key, allowedGuests, phone) {
 
     const whatsappBtn = document.getElementById('whatsapp-share-button');
     if (phone) {
+        // Limpar o número de telefone (remover caracteres especiais)
+        const cleanPhone = phone.replace(/\D/g, ''); // Remove tudo que não é dígito
+        
         const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Andressa & Alexandre. ${fullLink}`;
-        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        
+        // CORREÇÃO: Usar apenas números no WhatsApp e adicionar código do país se necessário
+        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
+        
         whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
         whatsappBtn.classList.remove('hidden');
     } else {
