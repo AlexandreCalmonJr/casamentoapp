@@ -328,7 +328,8 @@ async function initApp() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     setupNavListeners();
 
-    let keyHandledOnLoad = false;
+    // Flag para controlar o fluxo de carregamento inicial com chave
+    let isInitialLoadWithKey = false;
 
     // Captura chave da URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -336,12 +337,12 @@ async function initApp() {
     if (appState.accessKey) {
         const { isValid, isUsed, data } = await Firebase.validateAccessKey(appState.accessKey);
         if (isValid && !isUsed) {
+            isInitialLoadWithKey = true; // Sinaliza que o modal será o foco
             UI.renderAuthForm('signup', appState.accessKey, data);
             setupAuthFormListeners();
-            keyHandledOnLoad = true; // Sinaliza que o modal foi aberto
         } else {
             alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
-            window.history.replaceState({}, document.title, window.location.pathname);
+            window.history.replaceState({}, document.title, window.location.pathname); // Limpa a URL
         }
     }
     
@@ -350,20 +351,25 @@ async function initApp() {
         appState.currentUser = user;
         UI.toggleAuthModal(false);
         updateUserArea(user);
-
-        // Se o modal de chave foi aberto no carregamento, não renderiza a view 'home' por cima
-        if (keyHandledOnLoad) {
-            keyHandledOnLoad = false; // Reseta o flag para o próximo evento
-            if(!user) return; // Não faz nada se o usuário ainda não logou
+        
+        // Se não for o carregamento inicial com uma chave, renderiza a view normalmente.
+        // Isso evita que a 'home' seja renderizada por cima do modal de cadastro.
+        if (!isInitialLoadWithKey) {
+            renderCurrentView();
         }
         
-        renderCurrentView();
+        // Reseta o flag após a primeira execução para que o comportamento normal seja restaurado.
+        isInitialLoadWithKey = false;
     });
 
     // Esconde loading e mostra o app
     setTimeout(() => {
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('app-container').classList.remove('opacity-0');
+        // Renderiza a view 'home' se o modal de chave não foi aberto
+        if (!appState.accessKey) {
+            renderCurrentView();
+        }
     }, 500);
 }
 
