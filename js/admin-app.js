@@ -301,7 +301,7 @@ async function loadTab(tabName) {
 }
 
 function showShareModal(guestName, key, allowedGuests, phone) {
-    // **IMPORTANTE**: Altere a URL abaixo para a URL real do seu site!
+    // CORREÇÃO: A URL base do site agora está correta.
     const siteBaseUrl = 'https://casamentoa2.vercel.app/';
     const fullLink = `${siteBaseUrl}?key=${key}`;
 

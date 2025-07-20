@@ -367,7 +367,7 @@ async function initApp() {
         document.getElementById('loading-screen').classList.add('hidden');
         document.getElementById('app-container').classList.remove('opacity-0');
         // Renderiza a view 'home' se o modal de chave não foi aberto
-        if (!appState.accessKey) {
+        if (!isInitialLoadWithKey) {
             renderCurrentView();
         }
     }, 500);
