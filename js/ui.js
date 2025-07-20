@@ -221,6 +221,13 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
         <form id="signup-form" class="space-y-4">
             <div><label class="block text-sm">Chave de Acesso</label><input type="text" id="signup-key" value="${accessKey}" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required ${accessKey ? 'readonly' : ''}></div>
             <div id="guest-names-container"></div> <!-- Campos para nomes dos convidados -->
+            <div class="border-t pt-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante após a cerimônia?</label>
+                <div class="flex space-x-4 mt-2">
+                    <label class="inline-flex items-center"><input type="radio" name="attend-restaurant" value="yes" class="text-primary" checked><span class="ml-2">Sim, irei!</span></label>
+                    <label class="inline-flex items-center"><input type="radio" name="attend-restaurant" value="no" class="text-primary"><span class="ml-2">Apenas cerimônia</span></label>
+                </div>
+            </div>
             <div><label class="block text-sm">Seu Email</label><input type="email" id="signup-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <div><label class="block text-sm">Crie uma Senha</label><input type="password" id="signup-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <p id="auth-error" class="text-red-500 text-sm hidden"></p>

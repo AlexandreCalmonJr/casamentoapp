@@ -22,6 +22,8 @@ const logoutBtn = document.getElementById('logout-button');
 const adminEmailEl = document.getElementById('admin-email');
 const tabContent = document.getElementById('tab-content');
 const tabs = document.querySelectorAll('.tab-button');
+const shareModal = document.getElementById('share-modal');
+const closeShareModalBtn = document.getElementById('close-share-modal');
 
 // --- Funções de Lógica e Eventos ---
 
@@ -39,49 +41,61 @@ function handleTabClick(event) {
 }
 
 async function handleSaveDetails(event) {
-    event.preventDefault();
+    const button = document.getElementById('save-all-details-button');
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...`;
+    
     const successMsg = document.getElementById('details-success');
+    
     const updatedDetails = {
         coupleNames: document.getElementById('form-couple-names').value,
         weddingDate: new Date(document.getElementById('form-wedding-date').value),
         rsvpDate: new Date(document.getElementById('form-rsvp-date').value),
         venue: document.getElementById('form-venue').value,
         dressCode: document.getElementById('form-dress-code').value,
+        restaurantName: document.getElementById('form-restaurant-name').value,
+        restaurantAddress: document.getElementById('form-restaurant-address').value,
+        restaurantPriceInfo: document.getElementById('form-restaurant-price').value,
+        restaurantMapsLink: document.getElementById('form-restaurant-mapslink').value,
     };
+    
     await db.collection('siteConfig').doc('details').update(updatedDetails);
+    
+    button.disabled = false;
+    button.innerHTML = originalText;
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 3000);
 }
 
 async function handleGenerateKey() {
     const guestName = document.getElementById('guest-name').value.trim();
+    const guestPhone = document.getElementById('guest-phone').value.trim();
     const inviteType = document.getElementById('invite-type').value;
     const allowedGuests = parseInt(document.getElementById('allowed-guests').value, 10);
-    const resultEl = document.getElementById('key-result');
+    const generateBtn = document.getElementById('generate-key-button');
 
     if (!guestName || !allowedGuests || allowedGuests < 1) {
-        alert("Por favor, preencha todos os campos corretamente.");
+        alert("Por favor, preencha o nome e o número de pessoas.");
         return;
     }
     
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Gerando...`;
+
     const newKey = 'AS' + Math.random().toString(36).substring(2, 10).toUpperCase();
-    
-    // CORREÇÃO: Usa a chave como ID do documento
     await db.collection('accessKeys').doc(newKey).set({
-        guestName,
-        inviteType,
-        allowedGuests,
-        isUsed: false,
-        usedByEmail: null,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        guestName, guestPhone, inviteType, allowedGuests,
+        isUsed: false, usedByEmail: null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        willAttendRestaurant: null
     });
     
-    resultEl.innerHTML = `
-        <p class="text-sm">Chave para <strong>${guestName}</strong>:</p>
-        <p class="font-mono text-lg">${newKey}</p>
-        <p class="text-xs text-gray-600">(${allowedGuests} pessoa(s))</p>`;
-    resultEl.classList.remove('hidden');
+    showShareModal(guestName, newKey, allowedGuests, guestPhone);
     document.getElementById('guest-name').value = '';
+    document.getElementById('guest-phone').value = '';
+    generateBtn.disabled = false;
+    generateBtn.textContent = 'Gerar Convite';
 }
 
 async function handleDeleteMessage(event) {
@@ -150,6 +164,65 @@ async function handleDeletePhoto(event) {
     }
 }
 
+async function handleToggleGuestNames(event) {
+    const keyId = event.currentTarget.dataset.id;
+    const listContainer = document.getElementById(`guest-names-list-${keyId}`);
+    if (!listContainer) return;
+
+    const isHidden = listContainer.classList.contains('hidden');
+    if (isHidden) {
+        listContainer.classList.remove('hidden');
+        const snapshot = await db.collection('accessKeys').doc(keyId).collection('guestNames').get();
+        if (snapshot.empty) {
+            listContainer.innerHTML = `<p class="text-xs text-gray-500">Nomes não informados.</p>`;
+        } else {
+            const names = snapshot.docs.map(doc => `<li>${doc.data().name}</li>`).join('');
+            listContainer.innerHTML = `<ul class="text-sm text-gray-600 list-disc list-inside">${names}</ul>`;
+        }
+    } else {
+        listContainer.classList.add('hidden');
+    }
+}
+
+async function handleExportCSV() {
+    const snapshot = await db.collection('accessKeys').where('isUsed', '==', true).get();
+    if (snapshot.empty) {
+        alert("Nenhum convidado cadastrado para exportar.");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Convidado Principal,Email,Total de Pessoas,Vai ao Restaurante,Nomes dos Acompanhantes\r\n";
+
+    for (const doc of snapshot.docs) {
+        const key = doc.data();
+        const namesSnapshot = await db.collection('accessKeys').doc(doc.id).collection('guestNames').get();
+        const guestNames = namesSnapshot.docs.map(d => d.data().name).join('; ');
+        
+        const row = [
+            `"${key.guestName}"`,
+            key.usedByEmail,
+            key.allowedGuests,
+            key.willAttendRestaurant ? "Sim" : "Não",
+            `"${guestNames}"`
+        ].join(',');
+        csvContent += row + "\r\n";
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "relatorio_convidados.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function handleShareKey(event) {
+    const keyData = JSON.parse(event.currentTarget.dataset.key);
+    showShareModal(keyData.guestName, keyData.id, keyData.allowedGuests, keyData.guestPhone);
+}
+
 
 // --- Funções Principais de Carregamento ---
 
@@ -178,7 +251,7 @@ async function loadTab(tabName) {
     if (tabName === 'details') {
         const details = (await db.collection('siteConfig').doc('details').get()).data();
         tabContent.innerHTML = UI.renderDetailsEditor(details);
-        document.getElementById('details-form').addEventListener('submit', handleSaveDetails);
+        document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
     } else if (tabName === 'keys') {
         tabContent.innerHTML = UI.renderKeyManager();
         document.getElementById('generate-key-button').addEventListener('click', handleGenerateKey);
@@ -191,11 +264,16 @@ async function loadTab(tabName) {
                 UI.updateKeysList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.edit-key-btn').forEach(btn => btn.addEventListener('click', handleEditKey));
                 document.querySelectorAll('.delete-key-btn').forEach(btn => btn.addEventListener('click', handleDeleteKey));
+                document.querySelectorAll('.share-key-btn').forEach(btn => btn.addEventListener('click', handleShareKey));
             });
     } else if (tabName === 'report') {
         tabContent.innerHTML = UI.renderGuestsReport();
+        document.getElementById('export-csv-button').addEventListener('click', handleExportCSV);
         adminState.reportUnsubscribe = db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc')
-            .onSnapshot(snap => UI.updateGuestsReport(snap.docs.map(d => d.data())));
+            .onSnapshot(snap => {
+                UI.updateGuestsReport(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                document.querySelectorAll('.report-item').forEach(item => item.addEventListener('click', handleToggleGuestNames));
+            });
     } else if (tabName === 'guestbook') {
         tabContent.innerHTML = UI.renderGuestbookAdmin();
         adminState.guestbookUnsubscribe = db.collection('guestbook').orderBy('createdAt', 'desc')
@@ -222,10 +300,44 @@ async function loadTab(tabName) {
     }
 }
 
+function showShareModal(guestName, key, allowedGuests, phone) {
+    // **IMPORTANTE**: Altere a URL abaixo para a URL real do seu site!
+    const siteBaseUrl = 'https://casamentoa2.vercel.app/';
+    const fullLink = `${siteBaseUrl}?key=${key}`;
+
+    document.getElementById('modal-guest-name').textContent = guestName;
+    document.getElementById('modal-allowed-guests').textContent = allowedGuests;
+    document.getElementById('invite-link').value = fullLink;
+
+    const canvas = document.getElementById('qrcode');
+    QRCode.toCanvas(canvas, fullLink, { width: 200 }, function (error) {
+        if (error) console.error(error);
+        document.getElementById('download-qr-button').href = canvas.toDataURL();
+    });
+
+    const whatsappBtn = document.getElementById('whatsapp-share-button');
+    if (phone) {
+        const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Andressa & Alexandre. ${fullLink}`;
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
+        whatsappBtn.classList.remove('hidden');
+    } else {
+        whatsappBtn.classList.add('hidden');
+    }
+
+    shareModal.classList.remove('hidden');
+}
+
 function initAdmin() {
     googleLoginBtn.addEventListener('click', handleGoogleLogin);
     logoutBtn.addEventListener('click', () => auth.signOut());
     tabs.forEach(tab => tab.addEventListener('click', handleTabClick));
+    closeShareModalBtn.addEventListener('click', () => shareModal.classList.add('hidden'));
+    document.getElementById('copy-link-button').addEventListener('click', () => {
+        const linkInput = document.getElementById('invite-link');
+        linkInput.select();
+        document.execCommand('copy');
+    });
 
     auth.onAuthStateChanged(user => {
         if (user && adminEmails.includes(user.email)) {

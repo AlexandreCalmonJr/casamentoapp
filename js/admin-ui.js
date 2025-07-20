@@ -10,17 +10,28 @@ export function renderDetailsEditor(details) {
     const rsvpDate = new Date(details.rsvpDate.toDate()).toISOString().slice(0, 10);
 
     return `
-        <div class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
-            <h2 class="text-xl font-bold mb-4">Editar Detalhes do Casamento</h2>
-            <form id="details-form" class="space-y-4">
-                <div><label class="block text-sm font-medium">Nomes do Casal</label><input type="text" id="form-couple-names" value="${details.coupleNames}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDate}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDate}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Local</label><input type="text" id="form-venue" value="${details.venue}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Dress Code</label><input type="text" id="form-dress-code" value="${details.dressCode}" class="w-full mt-1 p-2 border rounded"></div>
-                <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700">Salvar Alterações</button>
-                <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
-            </form>
+        <div class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto space-y-6">
+            <div>
+                <h2 class="text-xl font-bold mb-4">Detalhes da Cerimônia</h2>
+                <form id="details-form" class="space-y-4">
+                    <div><label class="block text-sm font-medium">Nomes do Casal</label><input type="text" id="form-couple-names" value="${details.coupleNames || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDate}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDate}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Local da Cerimônia</label><input type="text" id="form-venue" value="${details.venue || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Dress Code</label><input type="text" id="form-dress-code" value="${details.dressCode || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                </form>
+            </div>
+            <div class="border-t pt-6">
+                <h2 class="text-xl font-bold mb-4">Detalhes do Restaurante (Pós-Cerimônia)</h2>
+                <form id="restaurant-form" class="space-y-4">
+                    <div><label class="block text-sm font-medium">Nome do Restaurante</label><input type="text" id="form-restaurant-name" value="${details.restaurantName || ''}" class="w-full mt-1 p-2 border rounded" placeholder="Nome do local"></div>
+                    <div><label class="block text-sm font-medium">Endereço do Restaurante</label><input type="text" id="form-restaurant-address" value="${details.restaurantAddress || ''}" class="w-full mt-1 p-2 border rounded" placeholder="Rua, Número, Bairro"></div>
+                    <div><label class="block text-sm font-medium">Informação de Valor</label><input type="text" id="form-restaurant-price" value="${details.restaurantPriceInfo || ''}" class="w-full mt-1 p-2 border rounded" placeholder="Ex: Aprox. R$ 150 por pessoa"></div>
+                    <div><label class="block text-sm font-medium">Link do Google Maps</label><input type="url" id="form-restaurant-mapslink" value="${details.restaurantMapsLink || ''}" class="w-full mt-1 p-2 border rounded" placeholder="https://maps.app.goo.gl/..."></div>
+                </form>
+            </div>
+            <button id="save-all-details-button" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700">Salvar Todas as Alterações</button>
+            <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
         </div>`;
 }
 
@@ -35,6 +46,7 @@ export function renderKeyManager() {
                 <h2 class="text-xl font-bold mb-4">Gerar Novo Convite</h2>
                 <div class="space-y-4">
                     <div><label class="block text-sm font-medium">Nome do Convidado (ou Família)</label><input type="text" id="guest-name" class="w-full mt-1 p-2 border rounded" placeholder="Ex: Família Silva"></div>
+                    <div><label class="block text-sm font-medium">Telefone do Convidado (com DDI e DDD)</label><input type="tel" id="guest-phone" class="w-full mt-1 p-2 border rounded" placeholder="Ex: 5571999998888"></div>
                     <div>
                         <label class="block text-sm font-medium">Tipo de Convite</label>
                         <select id="invite-type" class="w-full mt-1 p-2 border rounded bg-white">
@@ -46,9 +58,8 @@ export function renderKeyManager() {
                         <label class="block text-sm font-medium">Número de Pessoas</label>
                         <input type="number" id="allowed-guests" value="1" min="1" class="w-full mt-1 p-2 border rounded">
                     </div>
-                    <button id="generate-key-button" class="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700">Gerar Chave</button>
+                    <button id="generate-key-button" class="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700">Gerar Convite</button>
                 </div>
-                <div id="key-result" class="mt-4 p-3 bg-gray-50 rounded hidden"></div>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-xl font-bold mb-4">Convites Gerados</h2>
@@ -64,12 +75,25 @@ export function renderKeyManager() {
 export function renderGuestsReport() {
     return `
         <div class="bg-white p-6 rounded-lg shadow-md">
-            <div class="mb-6 text-center">
-                <h2 class="text-xl font-bold mb-2">Total de Convidados Confirmados</h2>
-                <p id="total-guests-count" class="text-5xl font-bold text-blue-600"><i class="fas fa-spinner fa-spin"></i></p>
-                <p class="text-sm text-gray-500">Soma de todas as pessoas dos convites utilizados</p>
+            <div class="flex flex-col md:flex-row justify-between md:items-center mb-4">
+                <div>
+                    <h2 class="text-xl font-bold">Relatório de Convidados</h2>
+                    <p class="text-sm text-gray-500">Visualize e exporte os convidados que já se cadastraram.</p>
+                </div>
+                <button id="export-csv-button" class="mt-4 md:mt-0 w-full md:w-auto py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center">
+                    <i class="fas fa-file-csv mr-2"></i>Exportar para CSV
+                </button>
             </div>
-            <h2 class="text-xl font-bold mb-4 border-t pt-6">Relatório de Convidados Cadastrados</h2>
+            <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                <div>
+                    <h3 class="text-lg font-bold mb-1">Total de Convidados Confirmados</h3>
+                    <p id="total-guests-count" class="text-5xl font-bold text-blue-600"><i class="fas fa-spinner fa-spin"></i></p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-1">Confirmados para o Restaurante</h3>
+                    <p id="restaurant-guests-count" class="text-5xl font-bold text-green-600"><i class="fas fa-spinner fa-spin"></i></p>
+                </div>
+            </div>
             <div id="guests-report-list"></div>
         </div>`;
 }
@@ -118,8 +142,7 @@ export function renderAdminGallery() {
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-xl font-bold mb-4">Moderar Galeria de Convidados</h2>
             <div id="admin-gallery-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                <!-- Fotos dos convidados serão carregadas aqui -->
-            </div>
+                </div>
         </div>`;
 }
 
@@ -142,13 +165,13 @@ export function updateKeysList(keys) {
             <div class="p-3 border-b flex justify-between items-center">
                 <div>
                     <p class="font-semibold">${key.guestName} <span class="text-xs font-normal text-gray-500">(${peopleText})</span></p>
-                    <p class="text-sm font-mono text-gray-600">${key.key}</p>
-                    ${key.isUsed ? `<p class="text-xs text-gray-500">Usado por: ${key.usedByEmail}</p>` : ''}
+                    <p class="text-sm font-mono text-gray-600">${key.id}</p> ${key.isUsed ? `<p class="text-xs text-gray-500">Usado por: ${key.usedByEmail}</p>` : ''}
                 </div>
                 <div class="flex items-center space-x-2">
                     <span class="text-xs font-medium px-2 py-1 rounded-full ${usedClass}">Utilizado: ${usedText}</span>
-                    <button data-id="${key.id}" class="edit-key-btn text-gray-400 hover:text-blue-600"><i class="fas fa-edit"></i></button>
-                    <button data-id="${key.id}" class="delete-key-btn text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                    <button data-key='${JSON.stringify(key)}' class="share-key-btn text-gray-400 hover:text-green-600" title="Compartilhar Convite"><i class="fas fa-share-alt"></i></button>
+                    <button data-id="${key.id}" class="edit-key-btn text-gray-400 hover:text-blue-600" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button data-id="${key.id}" class="delete-key-btn text-gray-400 hover:text-red-600" title="Excluir"><i class="fas fa-trash"></i></button>
                 </div>
             </div>`;
     }).join('');
@@ -161,31 +184,49 @@ export function updateKeysList(keys) {
 export function updateGuestsReport(usedKeys) {
     const listEl = document.getElementById('guests-report-list');
     const totalCountEl = document.getElementById('total-guests-count');
-    if (!listEl || !totalCountEl) return;
+    const restaurantCountEl = document.getElementById('restaurant-guests-count');
+    if (!listEl || !totalCountEl || !restaurantCountEl) return;
     
     let totalGuests = 0;
+    let restaurantGuests = 0;
+
     if (usedKeys.length === 0) {
         listEl.innerHTML = `<p class="text-center text-gray-500 p-4">Nenhum convidado se cadastrou ainda.</p>`;
         totalCountEl.textContent = '0';
+        restaurantCountEl.textContent = '0';
         return;
     }
     
     listEl.innerHTML = usedKeys.map(key => {
         totalGuests += key.allowedGuests || 1;
+        if (key.willAttendRestaurant) {
+            restaurantGuests += key.allowedGuests || 1;
+        }
         const usedDate = key.usedAt ? key.usedAt.toDate().toLocaleString('pt-BR') : 'N/A';
         const peopleText = key.allowedGuests > 1 ? `${key.allowedGuests} pessoas` : `${key.allowedGuests} pessoa`;
+        const restaurantIcon = key.willAttendRestaurant 
+            ? `<i class="fas fa-utensils text-green-500" title="Irá ao restaurante"></i>` 
+            : `<i class="fas fa-church text-gray-400" title="Apenas cerimônia"></i>`;
+
         return `<div class="p-3 border-b">
-                    <div class="flex justify-between items-start">
+                    <div class="flex justify-between items-start cursor-pointer report-item" data-id="${key.id}">
                         <div>
                             <p class="font-semibold">${key.guestName}</p>
                             <p class="text-sm text-gray-600">${key.usedByEmail}</p>
                         </div>
-                        <span class="text-sm font-bold text-gray-700">${peopleText}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-sm font-bold text-gray-700">${peopleText}</span>
+                            ${restaurantIcon}
+                        </div>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">Cadastrado em: ${usedDate}</p>
+                    <div id="guest-names-list-${key.id}" class="hidden mt-2 pl-4 border-l-2 border-gray-200">
+                        <p class="text-xs text-gray-500">Carregando nomes...</p>
+                    </div>
                 </div>`;
     }).join('');
     totalCountEl.textContent = totalGuests;
+    restaurantCountEl.textContent = restaurantGuests;
 }
 
 /**

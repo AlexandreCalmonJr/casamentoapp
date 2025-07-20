@@ -74,6 +74,7 @@ async function handleSignupSubmit(event) {
     const guestNameInputs = document.querySelectorAll('.guest-name-input');
     const guestNames = Array.from(guestNameInputs).map(input => input.value);
     const mainGuestName = guestNames[0] || '';
+    const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked').value === 'yes';
 
     try {
         await Firebase.signupUser({
@@ -81,7 +82,8 @@ async function handleSignupSubmit(event) {
             email: document.getElementById('signup-email').value,
             password: document.getElementById('signup-password').value,
             keyDocId: docId,
-            guestNames: guestNames
+            guestNames: guestNames,
+            willAttendRestaurant: willAttendRestaurant
         });
     } catch (error) {
         if (error.code === 'auth/email-already-in-use') {
@@ -326,6 +328,8 @@ async function initApp() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     setupNavListeners();
 
+    let keyHandledOnLoad = false;
+
     // Captura chave da URL
     const urlParams = new URLSearchParams(window.location.search);
     appState.accessKey = urlParams.get('key');
@@ -334,8 +338,10 @@ async function initApp() {
         if (isValid && !isUsed) {
             UI.renderAuthForm('signup', appState.accessKey, data);
             setupAuthFormListeners();
+            keyHandledOnLoad = true; // Sinaliza que o modal foi aberto
         } else {
             alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
+            window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
     
@@ -343,8 +349,15 @@ async function initApp() {
     Firebase.auth.onAuthStateChanged(user => {
         appState.currentUser = user;
         UI.toggleAuthModal(false);
+        updateUserArea(user);
+
+        // Se o modal de chave foi aberto no carregamento, não renderiza a view 'home' por cima
+        if (keyHandledOnLoad) {
+            keyHandledOnLoad = false; // Reseta o flag para o próximo evento
+            if(!user) return; // Não faz nada se o usuário ainda não logou
+        }
+        
         renderCurrentView();
-        updateUserArea(user); // Função unificada que agora lida com o link de admin
     });
 
     // Esconde loading e mostra o app

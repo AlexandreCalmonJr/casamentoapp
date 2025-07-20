@@ -28,7 +28,6 @@ export async function getWeddingDetails() {
     try {
         const docRef = db.collection('siteConfig').doc('details');
         const docSnap = await docRef.get();
-        // CORREÇÃO: Alterado de docSnap.exists() para docSnap.exists
         if (docSnap.exists) {
             const data = docSnap.data();
             // Converte Timestamps do Firestore para objetos Date do JS
@@ -56,7 +55,6 @@ export async function validateAccessKey(key) {
     const docRef = db.collection('accessKeys').doc(key);
     const docSnap = await docRef.get();
     
-    // CORREÇÃO: Alterado de docSnap.exists() para docSnap.exists
     if (!docSnap.exists) {
         return { isValid: false, isUsed: false, docId: null, data: null };
     }
@@ -82,15 +80,16 @@ export function loginUser(email, password) {
 
 /**
  * Cadastra um novo usuário e salva os nomes dos convidados.
- * @param {Object} userData - Dados do usuário {name, email, password, keyDocId, guestNames}.
+ * @param {Object} userData - Dados do usuário {name, email, password, keyDocId, guestNames, willAttendRestaurant}.
  * @returns {Promise<void>}
  */
-export async function signupUser({ name, email, password, keyDocId, guestNames }) {
+export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant }) {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     await userCredential.user.updateProfile({ displayName: name });
     
-    // Salva os nomes dos convidados em uma subcoleção
     const keyRef = db.collection('accessKeys').doc(keyDocId);
+    
+    // Salva os nomes dos convidados em uma subcoleção
     const guestNamesCollectionRef = keyRef.collection('guestNames');
     for (const guestName of guestNames) {
         if (guestName.trim() !== '') {
@@ -98,11 +97,12 @@ export async function signupUser({ name, email, password, keyDocId, guestNames }
         }
     }
 
-    // Marca a chave como usada
+    // Marca a chave como usada e salva a resposta do restaurante
     await keyRef.update({
         isUsed: true,
         usedByEmail: email,
-        usedAt: firebase.firestore.FieldValue.serverTimestamp()
+        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        willAttendRestaurant: willAttendRestaurant
     });
 }
 
