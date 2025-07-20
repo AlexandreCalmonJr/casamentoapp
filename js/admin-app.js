@@ -320,7 +320,7 @@ function showShareModal(guestName, key, allowedGuests, phone) {
         // Limpar o número de telefone (remover caracteres especiais)
         const cleanPhone = phone.replace(/\D/g, ''); // Remove tudo que não é dígito
         
-        const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Andressa & Alexandre. ${fullLink}`;
+        const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Alexandre & Andressa. ${fullLink}`;
         
         // CORREÇÃO: Usar apenas números no WhatsApp e adicionar código do país se necessário
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
