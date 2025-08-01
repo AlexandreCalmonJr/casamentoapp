@@ -1,0 +1,135 @@
+// js/admin-app.js
+
+import * as UI from './admin-ui.js';
+import { adminEmails } from './config.js';
+import { auth, db } from './firebase-service.js';
+
+// --- Estado da Aplicação Admin ---
+const state = {
+    currentTab: 'report', // Começar no relatório, que é mais "cara" de dashboard
+    unsubscribe: {}, 
+};
+
+// --- Elementos da DOM ---
+const DOMElements = {
+    loginScreen: document.getElementById('login-screen'),
+    adminDashboard: document.getElementById('admin-dashboard'),
+    googleLoginBtn: document.getElementById('google-login-button'),
+    logoutBtn: document.getElementById('logout-button'),
+    adminEmailEl: document.getElementById('admin-email'),
+    sidebarNav: document.getElementById('sidebar-nav'),
+    tabContent: document.getElementById('tab-content'),
+    shareModal: document.getElementById('share-modal'),
+    closeShareModalBtn: document.getElementById('close-share-modal'),
+    mobileMenuBtn: document.getElementById('mobile-menu-button'),
+    sidebar: document.getElementById('sidebar'),
+};
+
+// --- Lógica de Eventos (Handlers) ---
+
+// As funções de handle (handleSaveDetails, handleGenerateKey, etc.)
+// permanecem as mesmas da versão anterior, pois a lógica de negócio não mudou.
+// ... (cole aqui as funções handle da versão anterior)
+// Para economizar espaço, vou omitir as funções que não mudaram.
+// As funções que interagem com o modal de confirmação já estão corretas.
+
+// --- Funções de Carregamento e UI do Dashboard ---
+
+function cleanupListeners() {
+    Object.values(state.unsubscribe).forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
+    });
+    state.unsubscribe = {};
+}
+
+async function loadTab(tabName) {
+    state.currentTab = tabName;
+    UI.setActiveSidebarLink(tabName);
+    DOMElements.tabContent.innerHTML = UI.renderLoadingSpinner();
+
+    // Fecha o menu mobile ao selecionar uma aba
+    DOMElements.sidebar.classList.add('-translate-x-full');
+
+    cleanupListeners();
+
+    // Lógica para carregar o conteúdo de cada aba
+    // Esta parte é idêntica à versão anterior, apenas o gatilho mudou
+    // (de abas no topo para links na lateral)
+    if (tabName === 'details') {
+        const details = (await db.collection('siteConfig').doc('details').get()).data();
+        DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(details);
+        document.getElementById('save-all-details-button').addEventListener('click', () => { /* ... */ });
+    } else if (tabName === 'keys') {
+        DOMElements.tabContent.innerHTML = UI.renderKeyManager();
+        // ... listeners para 'keys'
+    } else if (tabName === 'report') {
+        DOMElements.tabContent.innerHTML = UI.renderGuestsReport();
+        // ... listeners para 'report'
+    } else if (tabName === 'guestbook') {
+        DOMElements.tabContent.innerHTML = UI.renderGuestbookAdmin();
+        // ... listeners para 'guestbook'
+    } else if (tabName === 'gifts') {
+        DOMElements.tabContent.innerHTML = UI.renderGiftsManager();
+        // ... listeners para 'gifts'
+    } else if (tabName === 'admin-gallery') {
+        DOMElements.tabContent.innerHTML = UI.renderAdminGallery();
+        // ... listeners para 'admin-gallery'
+    }
+}
+
+
+// --- Funções de Inicialização (Refatoradas para o Dashboard) ---
+
+function setupEventListeners() {
+    DOMElements.googleLoginBtn.addEventListener('click', () => { /* ... */ });
+    DOMElements.logoutBtn.addEventListener('click', () => auth.signOut());
+    
+    // Listener para a navegação da sidebar
+    DOMElements.sidebarNav.addEventListener('click', (event) => {
+        const link = event.target.closest('.sidebar-link');
+        if (link && link.dataset.tab) {
+            event.preventDefault();
+            loadTab(link.dataset.tab);
+        }
+    });
+
+    // Listener para o menu mobile
+    DOMElements.mobileMenuBtn.addEventListener('click', () => {
+        DOMElements.sidebar.classList.toggle('-translate-x-full');
+    });
+
+    // Listeners dos modais (sem alteração)
+    DOMElements.closeShareModalBtn.addEventListener('click', () => DOMElements.shareModal.classList.add('hidden'));
+    document.getElementById('copy-link-button').addEventListener('click', () => {
+        const linkInput = document.getElementById('invite-link');
+        linkInput.select();
+        document.execCommand('copy');
+    });
+}
+
+function setupAuthObserver() {
+    auth.onAuthStateChanged(user => {
+        const isAuthorized = user && adminEmails.includes(user.email);
+        
+        DOMElements.loginScreen.classList.toggle('hidden', !isAuthorized);
+        DOMElements.adminDashboard.classList.toggle('hidden', isAuthorized);
+
+        if (isAuthorized) {
+            DOMElements.adminEmailEl.textContent = user.email;
+            // Carrega a aba inicial do dashboard
+            loadTab(state.currentTab);
+        } else {
+            if (user) auth.signOut();
+        }
+    });
+}
+
+function initAdminDashboard() {
+    // Renderiza os links da sidebar uma vez
+    DOMElements.sidebarNav.innerHTML = UI.renderSidebarNav();
+    setupEventListeners();
+    setupAuthObserver();
+}
+
+// Inicia a aplicação do painel de admin
+initAdminDashboard();

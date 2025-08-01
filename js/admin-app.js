@@ -5,25 +5,25 @@ import { adminEmails } from './config.js';
 import { auth, db } from './firebase-service.js';
 
 // --- Estado da Aplicação Admin ---
-const adminState = {
-    currentTab: 'details',
-    keysUnsubscribe: null,
-    reportUnsubscribe: null,
-    guestbookUnsubscribe: null,
-    giftsUnsubscribe: null,
-    adminGalleryUnsubscribe: null,
+const state = {
+    currentTab: 'report', // Aba inicial
+    unsubscribe: {}, 
 };
 
 // --- Elementos da DOM ---
-const loginScreen = document.getElementById('login-screen');
-const adminDashboard = document.getElementById('admin-dashboard');
-const googleLoginBtn = document.getElementById('google-login-button');
-const logoutBtn = document.getElementById('logout-button');
-const adminEmailEl = document.getElementById('admin-email');
-const tabContent = document.getElementById('tab-content');
-const tabs = document.querySelectorAll('.tab-button');
-const shareModal = document.getElementById('share-modal');
-const closeShareModalBtn = document.getElementById('close-share-modal');
+const DOMElements = {
+    loginScreen: document.getElementById('login-screen'),
+    adminDashboard: document.getElementById('admin-dashboard'),
+    googleLoginBtn: document.getElementById('google-login-button'),
+    logoutBtn: document.getElementById('logout-button'),
+    adminEmailEl: document.getElementById('admin-email'),
+    sidebarNav: document.getElementById('sidebar-nav'),
+    tabContent: document.getElementById('tab-content'),
+    shareModal: document.getElementById('share-modal'),
+    closeShareModalBtn: document.getElementById('close-share-modal'),
+    mobileMenuBtn: document.getElementById('mobile-menu-button'),
+    sidebar: document.getElementById('sidebar'),
+};
 
 // --- Funções de Lógica e Eventos ---
 
@@ -36,15 +36,9 @@ function handleGoogleLogin() {
     });
 }
 
-function handleTabClick(event) {
-    loadTab(event.currentTarget.dataset.tab);
-}
-
 async function handleSaveDetails(event) {
-    const button = document.getElementById('save-all-details-button');
-    const originalText = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Salvando...`;
+    const button = event.currentTarget;
+    UI.setButtonLoading(button, true);
     
     const successMsg = document.getElementById('details-success');
     
@@ -58,12 +52,12 @@ async function handleSaveDetails(event) {
         restaurantAddress: document.getElementById('form-restaurant-address').value,
         restaurantPriceInfo: document.getElementById('form-restaurant-price').value,
         restaurantMapsLink: document.getElementById('form-restaurant-mapslink').value,
+        pixKey: document.getElementById('form-pix-key').value.trim()
     };
     
     await db.collection('siteConfig').doc('details').update(updatedDetails);
     
-    button.disabled = false;
-    button.innerHTML = originalText;
+    UI.setButtonLoading(button, false);
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 3000);
 }
@@ -80,8 +74,7 @@ async function handleGenerateKey() {
         return;
     }
     
-    generateBtn.disabled = true;
-    generateBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Gerando...`;
+    UI.setButtonLoading(generateBtn, true);
 
     const newKey = 'AS' + Math.random().toString(36).substring(2, 10).toUpperCase();
     await db.collection('accessKeys').doc(newKey).set({
@@ -94,14 +87,16 @@ async function handleGenerateKey() {
     showShareModal(guestName, newKey, allowedGuests, guestPhone);
     document.getElementById('guest-name').value = '';
     document.getElementById('guest-phone').value = '';
-    generateBtn.disabled = false;
-    generateBtn.textContent = 'Gerar Convite';
+    UI.setButtonLoading(generateBtn, false);
 }
 
 async function handleDeleteMessage(event) {
-    const button = event.currentTarget;
-    const messageId = button.dataset.id;
-    if (confirm('Tem certeza que deseja apagar esta mensagem?')) {
+    const messageId = event.currentTarget.dataset.id;
+    const confirmed = await UI.showConfirmationModal({
+        title: 'Apagar Mensagem',
+        message: 'Tem certeza que deseja apagar esta mensagem permanentemente?',
+    });
+    if (confirmed) {
         await db.collection('guestbook').doc(messageId).delete();
     }
 }
@@ -109,18 +104,35 @@ async function handleDeleteMessage(event) {
 async function handleAddGift(event) {
     event.preventDefault();
     const form = event.target;
+    const button = form.querySelector('button[type="submit"]');
+    UI.setButtonLoading(button, true);
+    
     const name = document.getElementById('gift-name').value;
     const description = document.getElementById('gift-description').value;
     const imageUrl = document.getElementById('gift-image-url').value;
+    // MELHORIA: Pega o valor do presente
+    const price = parseFloat(document.getElementById('gift-price').value) || 0;
+
     await db.collection('giftList').add({
-        name, description, imageUrl, isTaken: false, takenBy: null
+        name,
+        description,
+        imageUrl,
+        price, // Salva o valor
+        isTaken: false,
+        takenBy: null
     });
+
+    UI.setButtonLoading(button, false);
     form.reset();
 }
 
 async function handleDeleteGift(event) {
     const giftId = event.currentTarget.dataset.id;
-    if (confirm('Tem certeza que deseja apagar este presente?')) {
+    const confirmed = await UI.showConfirmationModal({
+        title: 'Apagar Presente',
+        message: 'Tem certeza que deseja apagar este presente da lista?',
+    });
+    if (confirmed) {
         await db.collection('giftList').doc(giftId).delete();
     }
 }
@@ -129,16 +141,28 @@ async function handleEditGift(event) {
     const giftId = event.currentTarget.dataset.id;
     const giftDoc = await db.collection('giftList').doc(giftId).get();
     const gift = giftDoc.data();
+
+    // MELHORIA: Permite editar o preço também
     const newName = prompt("Editar nome do presente:", gift.name);
+    const newPrice = prompt("Editar valor do presente (R$):", gift.price || '0');
     const newImageUrl = prompt("Editar URL da imagem:", gift.imageUrl);
-    if (newName !== null && newImageUrl !== null) {
-        await db.collection('giftList').doc(giftId).update({ name: newName, imageUrl: newImageUrl });
+    
+    if (newName !== null && newPrice !== null && newImageUrl !== null) {
+        await db.collection('giftList').doc(giftId).update({
+            name: newName,
+            price: parseFloat(newPrice) || 0,
+            imageUrl: newImageUrl
+        });
     }
 }
 
 async function handleDeleteKey(event) {
     const keyId = event.currentTarget.dataset.id;
-    if (confirm('Tem certeza que deseja apagar este convite? Se o convidado já se cadastrou, a conta dele não será apagada, mas o registro do convite sim.')) {
+    const confirmed = await UI.showConfirmationModal({
+        title: 'Apagar Convite',
+        message: 'Se o convidado já se cadastrou, a conta dele não será apagada, mas o registro do convite sim. Continuar?',
+    });
+    if (confirmed) {
         await db.collection('accessKeys').doc(keyId).delete();
     }
 }
@@ -159,7 +183,11 @@ async function handleEditKey(event) {
 
 async function handleDeletePhoto(event) {
     const photoId = event.currentTarget.dataset.id;
-    if (confirm('Tem certeza que deseja apagar esta foto da galeria?')) {
+    const confirmed = await UI.showConfirmationModal({
+        title: 'Apagar Foto',
+        message: 'Tem certeza que deseja apagar esta foto da galeria?',
+    });
+    if (confirmed) {
         await db.collection('guestPhotos').doc(photoId).delete();
     }
 }
@@ -226,40 +254,36 @@ function handleShareKey(event) {
 
 // --- Funções Principais de Carregamento ---
 
-function setActiveTab(tabName) {
-    tabs.forEach(tab => {
-        const isSelected = tab.dataset.tab === tabName;
-        tab.classList.toggle('border-blue-600', isSelected);
-        tab.classList.toggle('text-blue-600', isSelected);
-        tab.classList.toggle('border-transparent', !isSelected);
-        tab.classList.toggle('text-gray-500', !isSelected);
+function cleanupListeners() {
+    Object.values(state.unsubscribe).forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
     });
+    state.unsubscribe = {};
 }
 
 async function loadTab(tabName) {
-    adminState.currentTab = tabName;
-    setActiveTab(tabName);
-    tabContent.innerHTML = `<div class="text-center p-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i></div>`;
+    state.currentTab = tabName;
+    UI.setActiveSidebarLink(tabName);
+    DOMElements.tabContent.innerHTML = UI.renderLoadingSpinner();
 
-    // Cancela listeners antigos
-    if (adminState.keysUnsubscribe) adminState.keysUnsubscribe();
-    if (adminState.reportUnsubscribe) adminState.reportUnsubscribe();
-    if (adminState.guestbookUnsubscribe) adminState.guestbookUnsubscribe();
-    if (adminState.giftsUnsubscribe) adminState.giftsUnsubscribe();
-    if (adminState.adminGalleryUnsubscribe) adminState.adminGalleryUnsubscribe();
+    if (window.innerWidth < 1024) {
+        DOMElements.sidebar.classList.add('-translate-x-full');
+    }
+
+    cleanupListeners();
 
     if (tabName === 'details') {
         const details = (await db.collection('siteConfig').doc('details').get()).data();
-        tabContent.innerHTML = UI.renderDetailsEditor(details);
+        DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(details);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
     } else if (tabName === 'keys') {
-        tabContent.innerHTML = UI.renderKeyManager();
+        DOMElements.tabContent.innerHTML = UI.renderKeyManager();
         document.getElementById('generate-key-button').addEventListener('click', handleGenerateKey);
         document.getElementById('invite-type').addEventListener('change', (e) => {
             document.getElementById('allowed-guests').readOnly = e.target.value === 'individual';
             if (e.target.value === 'individual') document.getElementById('allowed-guests').value = 1;
         });
-        adminState.keysUnsubscribe = db.collection('accessKeys').orderBy('createdAt', 'desc')
+        state.unsubscribe.keys = db.collection('accessKeys').orderBy('createdAt', 'desc')
             .onSnapshot(snap => {
                 UI.updateKeysList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.edit-key-btn').forEach(btn => btn.addEventListener('click', handleEditKey));
@@ -267,32 +291,32 @@ async function loadTab(tabName) {
                 document.querySelectorAll('.share-key-btn').forEach(btn => btn.addEventListener('click', handleShareKey));
             });
     } else if (tabName === 'report') {
-        tabContent.innerHTML = UI.renderGuestsReport();
+        DOMElements.tabContent.innerHTML = UI.renderGuestsReport();
         document.getElementById('export-csv-button').addEventListener('click', handleExportCSV);
-        adminState.reportUnsubscribe = db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc')
+        state.unsubscribe.report = db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc')
             .onSnapshot(snap => {
                 UI.updateGuestsReport(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.report-item').forEach(item => item.addEventListener('click', handleToggleGuestNames));
             });
     } else if (tabName === 'guestbook') {
-        tabContent.innerHTML = UI.renderGuestbookAdmin();
-        adminState.guestbookUnsubscribe = db.collection('guestbook').orderBy('createdAt', 'desc')
+        DOMElements.tabContent.innerHTML = UI.renderGuestbookAdmin();
+        state.unsubscribe.guestbook = db.collection('guestbook').orderBy('createdAt', 'desc')
             .onSnapshot(snap => {
                 UI.updateGuestbookAdminList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.delete-message-btn').forEach(btn => btn.addEventListener('click', handleDeleteMessage));
             });
     } else if (tabName === 'gifts') {
-        tabContent.innerHTML = UI.renderGiftsManager();
+        DOMElements.tabContent.innerHTML = UI.renderGiftsManager();
         document.getElementById('add-gift-form').addEventListener('submit', handleAddGift);
-        adminState.giftsUnsubscribe = db.collection('giftList').orderBy('name')
+        state.unsubscribe.gifts = db.collection('giftList').orderBy('name')
             .onSnapshot(snap => {
                 UI.updateGiftsAdminList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.edit-gift-btn').forEach(btn => btn.addEventListener('click', handleEditGift));
                 document.querySelectorAll('.delete-gift-btn').forEach(btn => btn.addEventListener('click', handleDeleteGift));
             });
     } else if (tabName === 'admin-gallery') {
-        tabContent.innerHTML = UI.renderAdminGallery();
-        adminState.adminGalleryUnsubscribe = db.collection('guestPhotos').orderBy('createdAt', 'desc')
+        DOMElements.tabContent.innerHTML = UI.renderAdminGallery();
+        state.unsubscribe.adminGallery = db.collection('guestPhotos').orderBy('createdAt', 'desc')
             .onSnapshot(snap => {
                 UI.updateAdminGallery(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 document.querySelectorAll('.delete-photo-btn').forEach(btn => btn.addEventListener('click', handleDeletePhoto));
@@ -301,9 +325,8 @@ async function loadTab(tabName) {
 }
 
 function showShareModal(guestName, key, allowedGuests, phone) {
-    // CORREÇÃO: URL corrigida para o domínio atual
-    const siteBaseUrl = 'https://casamentoa2.vercel.app';
-    const fullLink = `${siteBaseUrl}?key=${key}`;
+    const siteBaseUrl = window.location.origin;
+    const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
 
     document.getElementById('modal-guest-name').textContent = guestName;
     document.getElementById('modal-allowed-guests').textContent = allowedGuests;
@@ -317,12 +340,8 @@ function showShareModal(guestName, key, allowedGuests, phone) {
 
     const whatsappBtn = document.getElementById('whatsapp-share-button');
     if (phone) {
-        // Limpar o número de telefone (remover caracteres especiais)
-        const cleanPhone = phone.replace(/\D/g, ''); // Remove tudo que não é dígito
-        
+        const cleanPhone = phone.replace(/\D/g, '');
         const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Alexandre & Andressa. ${fullLink}`;
-        
-        // CORREÇÃO: Usar apenas números no WhatsApp e adicionar código do país se necessário
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
         const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
         
@@ -332,33 +351,61 @@ function showShareModal(guestName, key, allowedGuests, phone) {
         whatsappBtn.classList.add('hidden');
     }
 
-    shareModal.classList.remove('hidden');
+    DOMElements.shareModal.classList.remove('hidden');
 }
 
-function initAdmin() {
-    googleLoginBtn.addEventListener('click', handleGoogleLogin);
-    logoutBtn.addEventListener('click', () => auth.signOut());
-    tabs.forEach(tab => tab.addEventListener('click', handleTabClick));
-    closeShareModalBtn.addEventListener('click', () => shareModal.classList.add('hidden'));
+
+// --- Funções de Inicialização ---
+
+function setupEventListeners() {
+    DOMElements.googleLoginBtn.addEventListener('click', handleGoogleLogin);
+    DOMElements.logoutBtn.addEventListener('click', () => auth.signOut());
+    
+    DOMElements.sidebarNav.addEventListener('click', (event) => {
+        const link = event.target.closest('.sidebar-link');
+        if (link && link.dataset.tab) {
+            event.preventDefault();
+            loadTab(link.dataset.tab);
+        }
+    });
+
+    DOMElements.mobileMenuBtn.addEventListener('click', () => {
+        DOMElements.sidebar.classList.toggle('-translate-x-full');
+    });
+
+    DOMElements.closeShareModalBtn.addEventListener('click', () => DOMElements.shareModal.classList.add('hidden'));
     document.getElementById('copy-link-button').addEventListener('click', () => {
         const linkInput = document.getElementById('invite-link');
         linkInput.select();
         document.execCommand('copy');
     });
+}
 
+function setupAuthObserver() {
     auth.onAuthStateChanged(user => {
-        if (user && adminEmails.includes(user.email)) {
-            loginScreen.classList.add('hidden');
-            adminDashboard.classList.remove('hidden');
-            adminEmailEl.textContent = user.email;
-            loadTab(adminState.currentTab);
+        const isAuthorized = user && adminEmails.includes(user.email);
+        
+        if (isAuthorized) {
+            DOMElements.adminDashboard.classList.remove('hidden');
+            DOMElements.loginScreen.classList.add('hidden');
+            DOMElements.adminEmailEl.textContent = user.email;
+            loadTab(state.currentTab);
         } else {
-            if (user) auth.signOut();
-            loginScreen.classList.remove('hidden');
-            adminDashboard.classList.add('hidden');
+            DOMElements.loginScreen.classList.remove('hidden');
+            DOMElements.adminDashboard.classList.add('hidden');
+            if (user) {
+                auth.signOut();
+            }
         }
     });
 }
 
+
+function initAdminDashboard() {
+    DOMElements.sidebarNav.innerHTML = UI.renderSidebarNav();
+    setupEventListeners();
+    setupAuthObserver();
+}
+
 // Inicia a aplicação do painel de admin
-initAdmin();
+initAdminDashboard();
