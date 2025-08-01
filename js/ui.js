@@ -1,6 +1,40 @@
 // js/ui.js
 
 /**
+ * MELHORIA: Otimiza uma URL do Cloudinary para uma thumbnail.
+ * @param {string} url - A URL original.
+ * @param {string} transformations - As transformações a serem aplicadas.
+ * @returns {string} A URL otimizada.
+ */
+function getOptimizedCloudinaryUrl(url, transformations = 'w_400,h_400,c_fill,q_auto') {
+    if (!url || !url.includes('res.cloudinary.com')) {
+        return url || `https://placehold.co/400x300/EEE/31343C?text=Presente`;
+    }
+    return url.replace('/image/upload/', `/image/upload/${transformations}/`);
+}
+
+/**
+ * MELHORIA: Ativa/desativa o estado de carregamento de um botão.
+ * @param {HTMLElement} button - O elemento do botão.
+ * @param {boolean} isLoading - Se deve mostrar o estado de carregamento.
+ */
+export function setButtonLoading(button, isLoading) {
+    if (!button) return;
+    if (isLoading) {
+        button.disabled = true;
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
+        button.innerHTML = `<div class="btn-spinner mx-auto"></div>`;
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.innerHTML = button.dataset.originalText;
+        }
+    }
+}
+
+/**
  * Gera o HTML para uma view específica.
  * @param {string} viewName - O nome da view ('home', 'details', etc.).
  * @param {firebase.User|null} user - O usuário autenticado.
@@ -17,29 +51,16 @@ export function generateViewHTML(viewName, user, weddingDetails) {
         </div>`;
     }
 
-    // Função auxiliar para formatar data com fallback
     const formatDate = (date) => {
         try {
-            return date.toLocaleDateString('pt-BR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-        } catch (error) {
-            return 'Data não disponível';
-        }
+            return date.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (error) { return 'Data não disponível'; }
     };
 
     const formatTime = (date) => {
         try {
-            return date.toLocaleTimeString('pt-BR', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
-        } catch (error) {
-            return 'Horário não disponível';
-        }
+            return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } catch (error) { return 'Horário não disponível'; }
     };
 
     switch (viewName) {
@@ -47,67 +68,34 @@ export function generateViewHTML(viewName, user, weddingDetails) {
             return `
                 <div class="space-y-8 text-center">
                     <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8">
-                        <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">
-                            ${weddingDetails.coupleNames || 'Nosso Casamento'}
-                        </h1>
-                        <p class="text-gray-600 dark:text-gray-400">
-                            Temos a honra de convidar para a celebração do nosso amor!
-                        </p>
+                        <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">${weddingDetails.coupleNames || 'Nosso Casamento'}</h1>
+                        <p class="text-gray-600 dark:text-gray-400">Temos a honra de convidar para a celebração do nosso amor!</p>
                     </div>
                     <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
                         <h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2>
-                        <div id="countdown" class="flex justify-center space-x-2 md:space-x-4">
-                            <div class="text-gray-500">Carregando...</div>
-                        </div>
+                        <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
                     </div>
                 </div>`;
         
         case 'details':
             return `
                 <div class="space-y-6">
-                    <div class="text-center">
-                        <h1 class="text-3xl font-cursive mb-2">Detalhes do Evento</h1>
-                    </div>
+                    <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Detalhes do Evento</h1></div>
                     <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4">
                         <h3 class="text-lg font-semibold border-b pb-2 mb-3">Cerimônia</h3>
-                        <div class="flex items-center">
-                            <i class="fas fa-calendar-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${formatDate(weddingDetails.weddingDate)}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-clock fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${formatTime(weddingDetails.weddingDate)}h</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-map-marker-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${weddingDetails.venue || 'Local a ser definido'}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-user-tie fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>Traje: ${weddingDetails.dressCode || 'A definir'}</span>
-                        </div>
+                        <div class="flex items-center"><i class="fas fa-calendar-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatDate(weddingDetails.weddingDate)}</span></div>
+                        <div class="flex items-center"><i class="fas fa-clock fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatTime(weddingDetails.weddingDate)}h</span></div>
+                        <div class="flex items-center"><i class="fas fa-map-marker-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.venue || 'Local a ser definido'}</span></div>
+                        <div class="flex items-center"><i class="fas fa-user-tie fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>Traje: ${weddingDetails.dressCode || 'A definir'}</span></div>
                     </div>
                     ${weddingDetails.restaurantName ? `
                     <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4">
                         <h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3>
-                        <div class="flex items-center">
-                            <i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${weddingDetails.restaurantName}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${weddingDetails.restaurantAddress || 'Endereço a ser definido'}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i>
-                            <span>${weddingDetails.restaurantPriceInfo || 'Valores a confirmar'}</span>
-                        </div>
-                        ${weddingDetails.restaurantMapsLink ? `
-                        <a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">
-                            Ver no Google Maps
-                        </a>` : ''}
-                    </div>
-                    ` : ''}
+                        <div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div>
+                        <div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress || 'Endereço a ser definido'}</span></div>
+                        <div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo || 'Valores a confirmar'}</span></div>
+                        ${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}
+                    </div>` : ''}
                 </div>`;
         
         case 'guest-photos':
@@ -116,9 +104,7 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                     <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>
                     ${user ? `
                         <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
-                            <div class="text-center mb-6">
-                                <p class="mb-2">Olá, ${user.displayName}! Compartilhe seus registros.</p>
-                            </div>
+                            <p class="text-center mb-4">Olá, ${user.displayName}! Compartilhe seus registros.</p>
                             <div class="flex flex-col sm:flex-row items-center gap-4">
                                 <input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/>
                                 <button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button>
@@ -128,7 +114,6 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                         </div>
                         <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
                             <h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2>
-                            <p class="text-gray-600 dark:text-gray-400 mb-4">Ajude-nos a registrar todos os momentos! Tente capturar:</p>
                             <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
                                 <li>Uma foto com alguém que você acabou de conhecer</li>
                                 <li>Uma foto do seu detalhe favorito da decoração</li>
@@ -202,29 +187,17 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                     `}
                 </div>`;
         default:
-            return `
-                <div class="text-center p-8">
-                    <h2 class="text-2xl font-bold mb-4">Página não encontrada</h2>
-                    <p class="text-gray-600 dark:text-gray-400">A página que você está procurando não existe.</p>
-                </div>`;
+            return `<div class="text-center p-8"><h2 class="text-2xl font-bold mb-4">Página não encontrada</h2></div>`;
     }
 }
 
-/**
- * Renderiza uma view no container principal.
- */
 export function renderView(viewName, user, weddingDetails) {
-    const mainContent = document.getElementById('main-content');
-    mainContent.innerHTML = generateViewHTML(viewName, user, weddingDetails);
+    document.getElementById('main-content').innerHTML = generateViewHTML(viewName, user, weddingDetails);
     updateNavButtons(viewName);
 }
 
-/**
- * Atualiza o estado visual dos botões de navegação.
- */
 function updateNavButtons(activeView) {
-    const navButtons = document.querySelectorAll('.nav-button');
-    navButtons.forEach(btn => {
+    document.querySelectorAll('.nav-button').forEach(btn => {
         const isActive = btn.dataset.view === activeView;
         btn.classList.toggle('text-primary', isActive);
         btn.classList.toggle('dark:text-dark-primary', isActive);
@@ -233,23 +206,19 @@ function updateNavButtons(activeView) {
     });
 }
 
-/**
- * Atualiza o timer de contagem regressiva com tratamento de erro.
- */
 export function updateCountdown(weddingDate) {
     const countdownEl = document.getElementById('countdown');
     if (!countdownEl) return null;
 
-    if (!weddingDate || !(weddingDate instanceof Date) || isNaN(weddingDate.getTime())) {
-        countdownEl.innerHTML = `<div class="text-xl font-serif text-gray-500 dark:text-gray-400">Data do evento não disponível</div>`;
+    if (!weddingDate || isNaN(weddingDate.getTime())) {
+        countdownEl.innerHTML = `<div class="text-xl font-serif text-gray-500 dark:text-gray-400">Data não disponível</div>`;
         return null;
     }
 
     const targetTime = weddingDate.getTime();
     
-    const updateTimer = () => {
+    const update = () => {
         const distance = targetTime - new Date().getTime();
-        
         if (distance < 0) {
             countdownEl.innerHTML = `<div class="text-xl font-serif text-primary dark:text-dark-primary">O grande dia chegou! 🎉</div>`;
             return false;
@@ -269,20 +238,10 @@ export function updateCountdown(weddingDate) {
         return true;
     };
 
-    if (!updateTimer()) return null;
-    
-    const interval = setInterval(() => {
-        if (!updateTimer()) {
-            clearInterval(interval);
-        }
-    }, 1000);
-    
-    return interval;
+    if (!update()) return null;
+    return setInterval(() => !update() && clearInterval(this), 1000);
 }
 
-/**
- * Renderiza as fotos na galeria com loading e erro.
- */
 export function renderGuestPhotos(photos) {
     const gallery = document.getElementById('photo-gallery');
     if (!gallery) return;
@@ -293,29 +252,24 @@ export function renderGuestPhotos(photos) {
     }
     
     if (photos.length === 0) {
-        gallery.innerHTML = `
-            <div class="col-span-full text-center py-12">
-                <i class="fas fa-camera text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">Seja o primeiro a compartilhar uma foto!</p>
-            </div>`;
+        gallery.innerHTML = `<div class="col-span-full text-center py-12"><i class="fas fa-camera text-4xl text-gray-300 mb-4"></i><p class="text-gray-500">Seja o primeiro a compartilhar uma foto!</p></div>`;
     } else {
         gallery.innerHTML = photos.map(photo => `
             <div class="aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden group">
-                <img 
-                    src="${photo.imageUrl}" 
-                    alt="Foto de ${photo.userName || 'Convidado'}" 
-                    class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    loading="lazy"
-                    onerror="this.parentElement.innerHTML='<div class=\\'flex items-center justify-center h-full text-gray-400\\'>Erro ao carregar</div>'"
-                >
+                <a href="${photo.imageUrl}" target="_blank" aria-label="Ver foto de ${photo.userName || 'Convidado'} em tamanho real">
+                    <img 
+                        src="${getOptimizedCloudinaryUrl(photo.imageUrl)}" 
+                        alt="Foto de ${photo.userName || 'Convidado'}" 
+                        class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        loading="lazy"
+                        onerror="this.parentElement.innerHTML='<div class=\\'flex items-center justify-center h-full text-gray-400\\'>Erro</div>'"
+                    >
+                </a>
             </div>
         `).join('');
     }
 }
 
-/**
- * Renderiza as mensagens no mural de recados.
- */
 export function renderGuestbookMessages(messages) {
     const container = document.getElementById('guestbook-messages');
     if (!container) return;
@@ -332,28 +286,28 @@ export function renderGuestbookMessages(messages) {
     }
 }
 
-/**
- * Renderiza a lista de presentes.
- */
-export function renderGiftList(gifts, currentUser) {
+export function renderGiftList(gifts, currentUser, weddingDetails) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
 
     if (gifts.length === 0) {
-        container.innerHTML = `<p class="col-span-full text-center text-gray-500">Nossa lista de presentes está sendo preparada com carinho. Volte em breve!</p>`;
+        container.innerHTML = `<p class="col-span-full text-center text-gray-500">A nossa lista de presentes está a ser preparada com carinho. Volte em breve!</p>`;
         return;
     }
 
     container.innerHTML = gifts.map(gift => {
         const isTaken = gift.isTaken;
         const isTakenByMe = isTaken && gift.takenBy === currentUser.displayName;
+        const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl, 'w_400,h_300,c_fill,q_auto');
+        const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor simbólico';
 
         return `
             <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all ${isTaken && !isTakenByMe ? 'opacity-50' : ''}">
                 <div>
-                    <img src="${gift.imageUrl || 'https://placehold.co/400x300/EEE/31343C?text=Presente'}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
+                    <img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description}</p>
+                    <p class="text-lg font-bold text-primary dark:text-dark-primary mt-2">${formattedPrice}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description || ''}</p>
                 </div>
                 <div class="mt-4">
                     ${isTaken 
@@ -361,7 +315,14 @@ export function renderGiftList(gifts, currentUser) {
                             ? `<button data-id="${gift.id}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>`
                             : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`
                           )
-                        : `<button data-id="${gift.id}" class="mark-gift-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90">Quero presentear</button>`
+                        // MELHORIA: Botão agora tem data-attributes com os dados do presente
+                        : `<button 
+                                data-id="${gift.id}"
+                                data-name="${gift.name}"
+                                data-price="${gift.price}"
+                                class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90">
+                                <i class="fas fa-qrcode mr-2"></i>Presentear com PIX
+                           </button>`
                     }
                 </div>
             </div>
@@ -369,42 +330,14 @@ export function renderGiftList(gifts, currentUser) {
     }).join('');
 }
 
-/**
- * Adiciona validação em tempo real aos campos do formulário de cadastro.
- */
 function addFormValidation() {
-    const emailInput = document.getElementById('signup-email');
-    const passwordInput = document.getElementById('signup-password');
-    const guestInputs = document.querySelectorAll('.guest-name-input');
-    
-    if (emailInput) {
-        emailInput.addEventListener('blur', (e) => {
-            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value);
-            e.target.classList.toggle('border-red-500', !isValid && e.target.value);
-            e.target.classList.toggle('border-green-500', isValid);
-        });
-    }
-    
-    if (passwordInput) {
-        passwordInput.addEventListener('input', (e) => {
-            const isValid = e.target.value.length >= 6;
-            e.target.classList.toggle('border-red-500', !isValid && e.target.value);
-            e.target.classList.toggle('border-green-500', isValid);
-        });
-    }
-    
-    guestInputs.forEach(input => {
+    document.querySelectorAll('input[required], textarea[required]').forEach(input => {
         input.addEventListener('blur', (e) => {
-            const isValid = e.target.value.trim().length >= 2;
-            e.target.classList.toggle('border-red-500', !isValid && e.target.value);
-            e.target.classList.toggle('border-green-500', isValid);
+            e.target.classList.toggle('border-red-500', !e.target.validity.valid);
         });
     });
 }
 
-/**
- * Gera os campos de input para os nomes dos convidados.
- */
 function generateGuestNameInputs(count) {
     const container = document.getElementById('guest-names-container');
     if (!container) return;
@@ -419,45 +352,38 @@ function generateGuestNameInputs(count) {
     }
 }
 
-/**
- * Renderiza o formulário de autenticação no modal.
- */
 export function renderAuthForm(type, accessKey = '', keyData = null) {
     const authFormContainer = document.getElementById('auth-form-container');
     const authModal = document.getElementById('auth-modal');
-
-    if (!authFormContainer || !authModal) {
-        console.error('Elementos do modal de auth não encontrados');
-        return;
-    }
+    if (!authFormContainer || !authModal) return;
     
     authFormContainer.innerHTML = type === 'login' ? `
         <h2 class="text-2xl font-serif mb-4 text-center">Login</h2>
-        <form id="login-form" class="space-y-4">
+        <form id="login-form" class="space-y-4" novalidate>
             <div><label class="block text-sm">Email</label><input type="email" id="login-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <div><label class="block text-sm">Senha</label><input type="password" id="login-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <p id="auth-error" class="text-red-500 text-sm hidden"></p>
             <button type="submit" class="w-full py-2 bg-primary text-white rounded">Entrar</button>
-            <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se com uma chave</button></p>
+            <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se</button></p>
         </form>
         <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b"><p class="text-center text-xs mx-4">OU</p></div>
         <button id="google-login-modal-button" class="w-full py-2 bg-blue-600 text-white rounded flex items-center justify-center"><i class="fab fa-google mr-2"></i>Entrar com Google</button>
     ` : `
         <h2 class="text-2xl font-serif mb-4 text-center">Cadastro de Convidado</h2>
-        <form id="signup-form" class="space-y-4">
+        <form id="signup-form" class="space-y-4" novalidate>
             <div><label class="block text-sm">Chave de Acesso</label><input type="text" id="signup-key" value="${accessKey}" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required ${accessKey ? 'readonly' : ''}></div>
             <div id="guest-names-container"></div>
             <div class="border-t pt-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante após a cerimônia?</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante?</label>
                 <div class="flex space-x-4 mt-2">
                     <label class="inline-flex items-center"><input type="radio" name="attend-restaurant" value="yes" class="text-primary" checked><span class="ml-2">Sim, irei!</span></label>
                     <label class="inline-flex items-center"><input type="radio" name="attend-restaurant" value="no" class="text-primary"><span class="ml-2">Apenas cerimônia</span></label>
                 </div>
             </div>
             <div><label class="block text-sm">Seu Email</label><input type="email" id="signup-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
-            <div><label class="block text-sm">Crie uma Senha</label><input type="password" id="signup-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
+            <div><label class="block text-sm">Crie uma Senha (mín. 6 caracteres)</label><input type="password" id="signup-password" minlength="6" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <p id="auth-error" class="text-red-500 text-sm hidden"></p>
-            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Confirmar Presença e Cadastrar</button>
+            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Confirmar e Cadastrar</button>
             <p class="text-sm text-center">Já tem conta? <button type="button" id="show-login" class="text-primary font-semibold">Faça login</button></p>
         </form>
     `;
@@ -466,14 +392,51 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
 
     if (type === 'signup' && keyData) {
         generateGuestNameInputs(keyData.allowedGuests);
-        setTimeout(() => addFormValidation(), 100);
     }
+    addFormValidation();
+}
+
+export function toggleAuthModal(show) {
+    document.getElementById('auth-modal').classList.toggle('hidden', !show);
 }
 
 /**
- * Mostra ou esconde o modal de autenticação.
- */
-export function toggleAuthModal(show) {
-    const authModal = document.getElementById('auth-modal');
-    authModal.classList.toggle('hidden', !show);
+ * MELHORIA: Renderiza o modal de pagamento PIX.
+ * @param {object} gift - O objeto do presente { id, name, price }.
+ * @param {object} weddingDetails - Detalhes do casamento, incluindo a chave PIX.
+ */export function renderPixModal(gift, weddingDetails) {
+    const pixContainer = document.getElementById('pix-content-container');
+    if (!pixContainer || !weddingDetails.pixKey) {
+        alert('A chave PIX dos noivos não foi configurada. Por favor, tente mais tarde.');
+        return;
+    }
+
+    // CORREÇÃO: Acessar a biblioteca e usar o método create() com a estrutura de objeto correta.
+    const { QrcodePix } = window;
+    if (!QrcodePix) {
+        alert('Erro ao carregar a funcionalidade PIX. Por favor, recarregue a página.');
+        return;
+    }
+
+    const pixPayload = QrcodePix.create({
+        version: '01',
+        key: weddingDetails.pixKey,
+        name: weddingDetails.coupleNames.substring(0, 25),
+        city: 'SALVADOR', // Cidade com no máximo 15 caracteres
+        transactionId: `GIFT${gift.id.substring(0, 15)}***`, // ID único para a transação
+        value: gift.price,
+        message: gift.name,
+    });
+    
+    const pixCode = pixPayload.payload();
+
+    pixContainer.innerHTML = `<div class="text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2><p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p><div id="pix-qrcode-container" class="p-2 bg-white rounded-lg inline-block"></div><p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${gift.price.toFixed(2).replace('.', ',')}</p><div class="mt-6"><p class="text-sm font-medium mb-2">1. Abra a app do seu banco e escolha pagar com QR Code.</p><p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p><div class="flex items-center"><input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md"><button id="copy-pix-button" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button></div></div><div class="mt-8 border-t dark:border-gray-700 pt-4"><p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente e evitar que outra pessoa o escolha.</p><button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"><i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!</button></div></div>`;
+    
+    pixPayload.toCanvas(document.getElementById('pix-qrcode-container'));
+    togglePixModal(true);
+}
+
+export function togglePixModal(show) {
+    const pixModal = document.getElementById('pix-modal');
+    pixModal.classList.toggle('hidden', !show);
 }

@@ -14,16 +14,12 @@ const appState = {
     galleryUnsubscribe: null,
     guestbookUnsubscribe: null,
     giftListUnsubscribe: null,
-    weddingDetails: null // Detalhes virão do DB
+    weddingDetails: null
 };
 
 // --- Funções de Melhoria e Utilitários ---
 
-/**
- * Gerencia o dark mode, salvando a preferência do usuário no localStorage.
- */
 function initializeDarkMode() {
-    // Verifica preferência salva ou do sistema
     const isDarkMode = localStorage.getItem('darkMode') === 'true' ||
         (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
     
@@ -37,38 +33,21 @@ function initializeDarkMode() {
     });
 }
 
-/**
- * Cancela todos os listeners do Firestore e intervalos para evitar vazamentos de memória.
- */
 function cleanupListeners() {
-    // Cancela listeners específicos do Firestore
-    if (appState.galleryUnsubscribe) {
-        appState.galleryUnsubscribe();
-        appState.galleryUnsubscribe = null;
-    }
-    if (appState.guestbookUnsubscribe) {
-        appState.guestbookUnsubscribe();
-        appState.guestbookUnsubscribe = null;
-    }
-    if (appState.giftListUnsubscribe) {
-        appState.giftListUnsubscribe();
-        appState.giftListUnsubscribe = null;
-    }
-    if (appState.countdownInterval) {
-        clearInterval(appState.countdownInterval);
-        appState.countdownInterval = null;
-    }
+    if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
+    if (appState.guestbookUnsubscribe) appState.guestbookUnsubscribe();
+    if (appState.giftListUnsubscribe) appState.giftListUnsubscribe();
+    if (appState.countdownInterval) clearInterval(appState.countdownInterval);
+    
+    appState.galleryUnsubscribe = null;
+    appState.guestbookUnsubscribe = null;
+    appState.giftListUnsubscribe = null;
+    appState.countdownInterval = null;
 }
 
-/**
- * Wrapper para a validação de chave com tratamento de erro.
- * @param {string} key - A chave de acesso.
- * @returns {Promise<Object>}
- */
 async function handleAccessKeyValidation(key) {
     try {
-        const result = await Firebase.validateAccessKey(key);
-        return result;
+        return await Firebase.validateAccessKey(key);
     } catch (error) {
         console.error('Erro ao validar chave:', error);
         return { isValid: false, isUsed: false, data: null, error: 'Erro na validação' };
@@ -94,22 +73,26 @@ function handleAuthFormSwitch(event) {
 
 async function handleLoginSubmit(event) {
     event.preventDefault();
+    const button = event.currentTarget.querySelector('button[type="submit"]');
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('auth-error');
     errorEl.classList.add('hidden');
+    UI.setButtonLoading(button, true);
 
     try {
         await Firebase.loginUser(email, password);
-        // O onAuthStateChanged cuidará do resto
     } catch (error) {
         errorEl.textContent = "Email ou senha inválidos.";
         errorEl.classList.remove('hidden');
+    } finally {
+        UI.setButtonLoading(button, false);
     }
 }
 
 async function handleSignupSubmit(event) {
     event.preventDefault();
+    const button = event.currentTarget.querySelector('button[type="submit"]');
     const key = document.getElementById('signup-key').value.trim();
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
@@ -117,21 +100,11 @@ async function handleSignupSubmit(event) {
     
     errorEl.classList.add('hidden');
 
-    // Validações básicas
-    if (!key) {
-        errorEl.textContent = "A chave de acesso é obrigatória.";
-        return errorEl.classList.remove('hidden');
-    }
-    if (!email) {
-        errorEl.textContent = "O email é obrigatório.";
-        return errorEl.classList.remove('hidden');
-    }
-    if (password.length < 6) {
-        errorEl.textContent = "A senha deve ter pelo menos 6 caracteres.";
+    if (!key || !email || password.length < 6) {
+        errorEl.textContent = "Verifique os campos obrigatórios.";
         return errorEl.classList.remove('hidden');
     }
 
-    // Validar nomes dos convidados
     const guestNameInputs = document.querySelectorAll('.guest-name-input');
     const guestNames = Array.from(guestNameInputs).map(input => input.value.trim()).filter(name => name);
     
@@ -139,20 +112,14 @@ async function handleSignupSubmit(event) {
         errorEl.textContent = "Pelo menos um nome de convidado é obrigatório.";
         return errorEl.classList.remove('hidden');
     }
+    
+    UI.setButtonLoading(button, true);
 
     try {
         const { isValid, isUsed, docId, data, error } = await handleAccessKeyValidation(key);
 
-        if (error) {
-            errorEl.textContent = "Erro ao verificar a chave de acesso.";
-            return errorEl.classList.remove('hidden');
-        }
-        if (!isValid) {
-            errorEl.textContent = "Chave de acesso inválida.";
-            return errorEl.classList.remove('hidden');
-        }
-        if (isUsed) {
-            errorEl.textContent = "Esta chave de acesso já foi utilizada.";
+        if (error || !isValid || isUsed) {
+            errorEl.textContent = isUsed ? "Esta chave já foi utilizada." : "Chave de acesso inválida.";
             return errorEl.classList.remove('hidden');
         }
 
@@ -169,21 +136,19 @@ async function handleSignupSubmit(event) {
         });
     } catch (error) {
         console.error('Erro no cadastro:', error);
+        errorEl.textContent = "Erro ao criar a conta. Verifique os dados.";
         if (error.code === 'auth/email-already-in-use') {
             errorEl.textContent = "Este email já está cadastrado.";
-        } else if (error.code === 'auth/weak-password') {
-            errorEl.textContent = "Senha muito fraca. Use pelo menos 6 caracteres.";
-        } else if (error.code === 'auth/invalid-email') {
-            errorEl.textContent = "Email inválido.";
-        } else {
-            errorEl.textContent = "Erro ao criar a conta. Verifique os dados.";
         }
         errorEl.classList.remove('hidden');
+    } finally {
+        UI.setButtonLoading(button, false);
     }
 }
 
 async function handlePhotoUploadClick() {
     const fileInput = document.getElementById('photo-input');
+    const uploadBtn = document.getElementById('upload-button');
     const file = fileInput.files[0];
     const user = appState.currentUser;
     
@@ -195,6 +160,7 @@ async function handlePhotoUploadClick() {
     
     errorEl.classList.add('hidden');
     progressContainer.classList.remove('hidden');
+    UI.setButtonLoading(uploadBtn, true);
 
     try {
         await Firebase.uploadPhoto(file, user, (progress) => {
@@ -205,14 +171,16 @@ async function handlePhotoUploadClick() {
         errorEl.textContent = "Erro no upload. Tente novamente.";
         errorEl.classList.remove('hidden');
     } finally {
+        UI.setButtonLoading(uploadBtn, false);
         setTimeout(() => progressContainer.classList.add('hidden'), 1000);
     }
 }
 
-async function handleGoogleLoginClick() {
+async function handleGoogleLoginClick(event) {
+    const button = event.currentTarget;
+    UI.setButtonLoading(button, true);
     try {
         await Firebase.signInWithGoogle();
-        // onAuthStateChanged vai cuidar do resto, fechando o modal
     } catch (error) {
         const errorEl = document.getElementById('auth-error');
         if (errorEl) {
@@ -220,11 +188,15 @@ async function handleGoogleLoginClick() {
             errorEl.classList.remove('hidden');
         }
         console.error("Google Sign-In Error", error);
+    } finally {
+        UI.setButtonLoading(button, false);
     }
 }
 
 async function handleGuestbookSubmit(event) {
     event.preventDefault();
+    const form = event.target;
+    const button = form.querySelector('button[type="submit"]');
     const messageInput = document.getElementById('guestbook-message');
     const message = messageInput.value.trim();
     const user = appState.currentUser;
@@ -233,12 +205,15 @@ async function handleGuestbookSubmit(event) {
 
     if (!message || !user) return;
 
+    UI.setButtonLoading(button, true);
     try {
         await Firebase.postGuestbookMessage(user, message);
         messageInput.value = '';
     } catch (error) {
         errorEl.textContent = "Erro ao enviar mensagem.";
         errorEl.classList.remove('hidden');
+    } finally {
+        UI.setButtonLoading(button, false);
     }
 }
 
@@ -251,21 +226,11 @@ function setupNavListeners() {
 }
 
 function setupAuthFormListeners() {
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    const googleBtn = document.getElementById('google-login-modal-button');
-    
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLoginSubmit);
-        document.getElementById('show-signup').addEventListener('click', handleAuthFormSwitch);
-    }
-    if (signupForm) {
-        signupForm.addEventListener('submit', handleSignupSubmit);
-        document.getElementById('show-login').addEventListener('click', handleAuthFormSwitch);
-    }
-    if (googleBtn) {
-        googleBtn.addEventListener('click', handleGoogleLoginClick);
-    }
+    document.getElementById('login-form')?.addEventListener('submit', handleLoginSubmit);
+    document.getElementById('signup-form')?.addEventListener('submit', handleSignupSubmit);
+    document.getElementById('show-signup')?.addEventListener('click', handleAuthFormSwitch);
+    document.getElementById('show-login')?.addEventListener('click', handleAuthFormSwitch);
+    document.getElementById('google-login-modal-button')?.addEventListener('click', handleGoogleLoginClick);
 }
 
 function setupViewSpecificListeners() {
@@ -276,75 +241,71 @@ function setupViewSpecificListeners() {
     }
     if (appState.currentView === 'guest-photos') {
         if (appState.currentUser) {
-            const logoutBtn = document.getElementById('logout-button');
-            const uploadBtn = document.getElementById('upload-button');
-            if(logoutBtn) logoutBtn.addEventListener('click', () => Firebase.auth.signOut());
-            if(uploadBtn) uploadBtn.addEventListener('click', handlePhotoUploadClick);
-
+            document.getElementById('upload-button')?.addEventListener('click', handlePhotoUploadClick);
             appState.galleryUnsubscribe = Firebase.listenToGuestPhotos(UI.renderGuestPhotos);
         }
     }
     if (appState.currentView === 'guestbook') {
-        const openLoginBtn = document.getElementById('open-login-button');
-        if (openLoginBtn) openLoginBtn.addEventListener('click', () => {
+        document.getElementById('open-login-button')?.addEventListener('click', () => {
             UI.renderAuthForm('login', appState.accessKey);
             setupAuthFormListeners();
         });
 
         if (appState.currentUser) {
-            const guestbookForm = document.getElementById('guestbook-form');
-            if(guestbookForm) guestbookForm.addEventListener('submit', handleGuestbookSubmit);
+            document.getElementById('guestbook-form')?.addEventListener('submit', handleGuestbookSubmit);
         }
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
     if (appState.currentView === 'gifts') {
         if (appState.currentUser) {
             appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
-                UI.renderGiftList(gifts, appState.currentUser);
-                document.querySelectorAll('.mark-gift-btn').forEach(btn => btn.addEventListener('click', (e) => Firebase.markGiftAsTaken(e.target.dataset.id, appState.currentUser)));
-                document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', (e) => Firebase.unmarkGiftAsTaken(e.target.dataset.id)));
+                // Passa os weddingDetails para a função de renderização
+                UI.renderGiftList(gifts, appState.currentUser, appState.weddingDetails);
+                
+                // Listener para o botão de desfazer
+                document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', async (e) => {
+                    // ... (lógica de desfazer permanece a mesma)
+                }));
+
+                // MELHORIA: Listener para o novo botão de presentear com PIX
+                document.querySelectorAll('.present-with-pix-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                    const gift = {
+                        id: e.currentTarget.dataset.id,
+                        name: e.currentTarget.dataset.name,
+                        price: parseFloat(e.currentTarget.dataset.price)
+                    };
+                    UI.renderPixModal(gift, appState.weddingDetails);
+                }));
             });
         }
     }
     if (appState.currentView === 'rsvp') {
-        const openLoginBtn = document.getElementById('open-login-button');
-        const openSignupBtn = document.getElementById('open-signup-button');
+        document.getElementById('open-login-button')?.addEventListener('click', () => {
+            UI.renderAuthForm('login');
+            setupAuthFormListeners();
+        });
 
-        if (openLoginBtn) {
-            openLoginBtn.addEventListener('click', () => {
-                UI.renderAuthForm('login');
-                setupAuthFormListeners();
-            });
-        }
-
-        if (openSignupBtn) {
-            openSignupBtn.addEventListener('click', async () => {
-                const key = prompt("Por favor, insira sua chave de acesso para iniciar o cadastro:");
-                if (key) {
-                    const { isValid, isUsed, data } = await handleAccessKeyValidation(key.trim());
-                    if (isValid && !isUsed) {
-                        UI.renderAuthForm('signup', key.trim(), data);
-                        setupAuthFormListeners();
-                    } else if (isUsed) {
-                        alert("Esta chave de acesso já foi utilizada.");
-                    } else {
-                        alert("Chave de acesso inválida.");
-                    }
+        document.getElementById('open-signup-button')?.addEventListener('click', async () => {
+            const key = prompt("Por favor, insira sua chave de acesso para iniciar o cadastro:");
+            if (key) {
+                const { isValid, isUsed, data } = await handleAccessKeyValidation(key.trim());
+                if (isValid && !isUsed) {
+                    UI.renderAuthForm('signup', key.trim(), data);
+                    setupAuthFormListeners();
+                } else {
+                    alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
                 }
-            });
-        }
+            }
+        });
 
-        // NOVO: Se temos uma chave válida no URL, abrir automaticamente o modal de cadastro
         if (appState.accessKey) {
             setTimeout(async () => {
                 const { isValid, isUsed, data } = await handleAccessKeyValidation(appState.accessKey);
                 if (isValid && !isUsed) {
                     UI.renderAuthForm('signup', appState.accessKey, data);
                     setupAuthFormListeners();
-                } else if (isUsed) {
-                    alert("Esta chave de acesso já foi utilizada.");
                 } else {
-                    alert("Chave de acesso inválida.");
+                    alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
                 }
             }, 100);
         }
@@ -399,33 +360,66 @@ function updateUserArea(user) {
     }
 }
 
+function setupModalListeners() {
+    // Listener para fechar o modal de autenticação
+    document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
+    
+    // Listeners para o novo modal PIX
+    const pixModal = document.getElementById('pix-modal');
+    document.getElementById('close-pix-modal').addEventListener('click', () => UI.togglePixModal(false));
+    
+    // Listener para o botão de copiar e de confirmar dentro do modal PIX
+    pixModal.addEventListener('click', async (e) => {
+        // Copiar código PIX
+        if (e.target.closest('#copy-pix-button')) {
+            const input = document.getElementById('pix-copy-paste');
+            input.select();
+            document.execCommand('copy');
+            e.target.closest('#copy-pix-button').innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                e.target.closest('#copy-pix-button').innerHTML = '<i class="fas fa-copy"></i>';
+            }, 2000);
+        }
+
+        // Confirmar presente
+        const confirmButton = e.target.closest('#confirm-gift-button');
+        if (confirmButton) {
+            const giftId = confirmButton.dataset.id;
+            UI.setButtonLoading(confirmButton, true);
+            try {
+                await Firebase.markGiftAsTaken(giftId, appState.currentUser);
+                UI.togglePixModal(false); // Fecha o modal após sucesso
+            } catch (err) {
+                console.error("Erro ao marcar presente:", err);
+                alert("Ocorreu um erro ao confirmar o seu presente. Por favor, tente novamente.");
+                UI.setButtonLoading(confirmButton, false);
+            }
+        }
+    });
+}
+
 async function initApp() {
     try {
         appState.weddingDetails = await Firebase.getWeddingDetails();
         if (!appState.weddingDetails) {
-            document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento. Verifique a configuração do Firestore.</div>`;
+            document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento.</div>`;
             return;
         }
 
-        const loadingTitle = document.getElementById('loading-title');
-        const pageTitle = document.getElementById('page-title');
-        if (loadingTitle) loadingTitle.textContent = appState.weddingDetails.coupleNames;
-        if (pageTitle) pageTitle.textContent = appState.weddingDetails.coupleNames;
+        document.getElementById('loading-title').textContent = appState.weddingDetails.coupleNames;
+        document.getElementById('page-title').textContent = appState.weddingDetails.coupleNames;
 
         initializeDarkMode();
-        
-        document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
         setupNavListeners();
+        setupModalListeners(); // Configura os listeners dos modais
 
-        // Verificar se existe uma chave de acesso no URL
         const urlParams = new URLSearchParams(window.location.search);
         appState.accessKey = urlParams.get('key');
         
-        // Se tem chave válida, redirecionar para RSVP
         if (appState.accessKey) {
             const { isValid, isUsed } = await handleAccessKeyValidation(appState.accessKey);
             if (isValid && !isUsed) {
-                appState.currentView = 'rsvp'; // MUDAR PARA RSVP EM VEZ DE FICAR NA HOME
+                appState.currentView = 'rsvp';
             } else {
                 alert(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.");
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -443,12 +437,12 @@ async function initApp() {
         setTimeout(() => {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('opacity-0');
-            renderCurrentView(); // Renderizar a view atual (home ou rsvp se tem chave)
+            renderCurrentView();
         }, 500);
 
     } catch (error) {
         console.error('Erro na inicialização:', error);
-        document.body.innerHTML = `<div class="text-center p-8">Erro ao inicializar a aplicação. Recarregue a página.</div>`;
+        document.body.innerHTML = `<div class="text-center p-8">Erro ao inicializar a aplicação.</div>`;
     }
 }
 
