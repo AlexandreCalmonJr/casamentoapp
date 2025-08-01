@@ -400,84 +400,83 @@ export function toggleAuthModal(show) {
 }
 
 // Função auxiliar para gerar o código PIX manualmente
-function generatePixCode(pixKey, name, city, value, message, transactionId) {
-    // Função para calcular CRC16
-    function crc16(data) {
-        let crc = 0xFFFF;
-        for (let i = 0; i < data.length; i++) {
-            crc ^= data.charCodeAt(i) << 8;
-            for (let j = 0; j < 8; j++) {
-                if (crc & 0x8000) {
-                    crc = (crc << 1) ^ 0x1021;
-                } else {
-                    crc <<= 1;
-                }
-                crc &= 0xFFFF;
+/**
+ * Gera o QR Code no placeholder
+ * @param {string} pixCode - O código PIX gerado
+ */
+function generateQRCode(pixCode) {
+    const placeholder = document.getElementById('qr-placeholder');
+    if (!placeholder) return;
+
+    // Limpar o placeholder
+    placeholder.innerHTML = '';
+
+    if (window.QRCode) {
+        try {
+            // Gerar o QR Code usando QRCode.js
+            new window.QRCode(placeholder, {
+                text: pixCode,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: window.QRCode.CorrectLevel.M
+            });
+        } catch (error) {
+            console.error("Erro ao gerar QR Code:", error);
+            showQRCodeFallback(placeholder);
+        }
+    } else {
+        console.warn("QRCode.js não está disponível");
+        showQRCodeFallback(placeholder);
+    }
+}
+
+/**
+ * Configura o botão de copiar código PIX
+ */
+function setupCopyButton() {
+    const copyButton = document.getElementById('copy-pix-button');
+    const pixInput = document.getElementById('pix-copy-paste');
+    
+    if (copyButton && pixInput) {
+        copyButton.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(pixInput.value);
+                
+                // Feedback visual temporário
+                const originalIcon = copyButton.innerHTML;
+                copyButton.innerHTML = '<i class="fas fa-check text-green-600"></i>';
+                copyButton.classList.add('bg-green-200', 'dark:bg-green-800');
+                
+                setTimeout(() => {
+                    copyButton.innerHTML = originalIcon;
+                    copyButton.classList.remove('bg-green-200', 'dark:bg-green-800');
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Erro ao copiar:', error);
+                // Fallback para browsers que não suportam clipboard API
+                pixInput.select();
+                document.execCommand('copy');
+                alert('Código PIX copiado!');
             }
-        }
-        return crc.toString(16).toUpperCase().padStart(4, '0');
+        });
     }
+}
 
-    // Função para formatar campo PIX
-    function formatField(id, value) {
-        const length = value.length.toString().padStart(2, '0');
-        return id + length + value;
-    }
-
-    // Construir o código PIX
-    let pixCode = '';
-    
-    // Payload Format Indicator
-    pixCode += formatField('00', '01');
-    
-    // Point of Initiation Method (opcional)
-    pixCode += formatField('01', '12');
-    
-    // Merchant Account Information
-    let merchantInfo = '';
-    merchantInfo += formatField('00', 'BR.GOV.BCB.PIX');
-    merchantInfo += formatField('01', pixKey);
-    pixCode += formatField('26', merchantInfo);
-    
-    // Merchant Category Code
-    pixCode += formatField('52', '0000');
-    
-    // Transaction Currency (BRL)
-    pixCode += formatField('53', '986');
-    
-    // Transaction Amount
-    if (value && value > 0) {
-        pixCode += formatField('54', value.toFixed(2));
-    }
-    
-    // Country Code
-    pixCode += formatField('58', 'BR');
-    
-    // Merchant Name
-    pixCode += formatField('59', name.substring(0, 25));
-    
-    // Merchant City
-    pixCode += formatField('60', city.substring(0, 15));
-    
-    // Additional Data Field Template
-    if (message || transactionId) {
-        let additionalData = '';
-        if (transactionId) {
-            additionalData += formatField('05', transactionId.substring(0, 25));
-        }
-        if (message) {
-            additionalData += formatField('02', message.substring(0, 50));
-        }
-        pixCode += formatField('62', additionalData);
-    }
-    
-    // CRC16
-    const crcField = '6304';
-    const fullCode = pixCode + crcField;
-    const crc = crc16(fullCode);
-    pixCode += crcField + crc;
-    
-    return pixCode;
+/**
+ * Mostra um fallback quando o QR Code não pode ser gerado
+ * @param {HTMLElement} placeholder - O elemento onde mostrar o fallback
+ */
+function showQRCodeFallback(placeholder) {
+    placeholder.innerHTML = `
+        <div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-8 text-center">
+            <i class="fas fa-qrcode text-4xl text-gray-500 mb-2"></i>
+            <p class="text-sm text-gray-600 dark:text-gray-400">QR Code indisponível</p>
+            <p class="text-xs text-gray-500 mt-1">Use o código PIX abaixo</p>
+        </div>
+    `;
 }
 
 /**
@@ -485,7 +484,7 @@ function generatePixCode(pixKey, name, city, value, message, transactionId) {
  * @param {object} gift - O objeto do presente { id, name, price }.
  * @param {object} weddingDetails - Detalhes do casamento, incluindo a chave PIX.
  */
-export async function renderPixModal(gift, weddingDetails) {
+export function renderPixModal(gift, weddingDetails) {
     const pixContainer = document.getElementById('pix-content-container');
     if (!pixContainer || !weddingDetails.pixKey) {
         alert('A chave PIX dos noivos não foi configurada. Por favor, tente mais tarde.');
@@ -507,18 +506,13 @@ export async function renderPixModal(gift, weddingDetails) {
             `GIFT${gift.id.substring(0, 15)}`
         );
 
-        // Criar container para o QR Code
-        const qrContainer = document.createElement('div');
-        qrContainer.id = 'qrcode-container';
-        qrContainer.className = 'flex justify-center p-4 bg-white rounded-lg mx-auto mb-4';
-        qrContainer.style.width = 'fit-content';
-
+        // Renderizar o conteúdo do modal
         pixContainer.innerHTML = `
             <div class="text-center">
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p>
                 
-                <div id="qr-placeholder" class="mx-auto mb-4"></div>
+                <div id="qr-placeholder" class="flex justify-center p-4 bg-white rounded-lg mx-auto mb-4 w-fit"></div>
                 
                 <p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p>
                 
@@ -539,36 +533,81 @@ export async function renderPixModal(gift, weddingDetails) {
                 </div>
             </div>`;
 
-        // Aguardar um momento para o DOM ser atualizado
+        // Aguardar um momento para o DOM ser atualizado e então gerar o QR Code
         setTimeout(() => {
-            const placeholder = document.getElementById('qr-placeholder');
-            if (placeholder && window.QRCode) {
-                placeholder.appendChild(qrContainer);
-                
-                // Gerar o QR Code
-                new window.QRCode(qrContainer, {
-                    text: pixCode,
-                    width: 200,
-                    height: 200,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: window.QRCode.CorrectLevel.M
-                });
-            } else {
-                // Fallback se QRCode.js não estiver disponível
-                placeholder.innerHTML = `
-                    <div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-8 text-center">
-                        <i class="fas fa-qrcode text-4xl text-gray-500 mb-2"></i>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Use o código PIX abaixo</p>
-                    </div>
-                `;
-            }
+            generateQRCode(pixCode);
         }, 100);
+
+        // Adicionar event listener para o botão de copiar
+        setupCopyButton();
 
     } catch (error) {
         console.error("Erro ao gerar PIX:", error);
-        pixContainer.innerHTML = `<p class="text-center text-red-500">Ocorreu um erro ao gerar o código PIX. Por favor, tente novamente.</p>`;
+        pixContainer.innerHTML = `
+            <div class="text-center p-8">
+                <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                <p class="text-red-500 font-medium">Ocorreu um erro ao gerar o código PIX.</p>
+                <p class="text-gray-600 dark:text-gray-400 text-sm mt-2">Por favor, tente novamente.</p>
+            </div>`;
     }
+}
+
+
+// Função auxiliar para gerar o código PIX manualmente
+function generatePixCode(pixKey, name, city, value, message, transactionId) {
+    function crc16(data) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc ^= data.charCodeAt(i) << 8;
+            for (let j = 0; j < 8; j++) {
+                if (crc & 0x8000) { 
+                    crc = (crc << 1) ^ 0x1021; 
+                } else { 
+                    crc <<= 1; 
+                }
+                crc &= 0xFFFF;
+            }
+        }
+        return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    function formatField(id, value) {
+        const length = value.length.toString().padStart(2, '0');
+        return id + length + value;
+    }
+
+    let pixCode = '';
+    pixCode += formatField('00', '01'); // Payload Format Indicator
+    
+    // Merchant Account Information
+    let merchantInfo = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', pixKey);
+    pixCode += formatField('26', merchantInfo);
+    
+    pixCode += formatField('52', '0000'); // Merchant Category Code
+    pixCode += formatField('53', '986');  // Transaction Currency (BRL)
+    
+    // Transaction Amount (opcional)
+    if (value && value > 0) { 
+        pixCode += formatField('54', value.toFixed(2)); 
+    }
+    
+    pixCode += formatField('58', 'BR'); // Country Code
+    pixCode += formatField('59', name.substring(0, 25)); // Merchant Name
+    pixCode += formatField('60', city.substring(0, 15)); // Merchant City
+    
+    // Additional Data Field Template
+    let additionalData = formatField('05', transactionId ? transactionId.substring(0, 25) : '***');
+    if (message) { 
+        additionalData += formatField('02', message.substring(0, 50)); 
+    }
+    pixCode += formatField('62', additionalData);
+    
+    // CRC16
+    pixCode += '6304';
+    const crc = crc16(pixCode);
+    pixCode += crc;
+    
+    return pixCode;
 }
 
 export function togglePixModal(show) {
