@@ -249,7 +249,7 @@ function setupViewSpecificListeners() {
     if (appState.currentView === 'gifts') {
         if (appState.currentUser) {
             appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
-                UI.renderGiftList(gifts, appState.currentUser);
+                UI.renderGiftList(gifts, appState.currentUser, appState.weddingDetails);
                 document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', async (e) => {
                     const button = e.currentTarget;
                     UI.setButtonLoading(button, true);
@@ -260,7 +260,8 @@ function setupViewSpecificListeners() {
                         UI.setButtonLoading(button, false);
                     }
                 }));
-                UI.initializePixButtons(appState.weddingDetails);
+                // CORREÇÃO: Chamando a função com o nome correto.
+                UI.initializeGiftEventListeners(appState.weddingDetails);
             });
         }
     }
@@ -369,7 +370,6 @@ function setupModalListeners() {
 
 async function initApp() {
     try {
-        // CORREÇÃO: A função loadScript foi removida. A importação é automática.
         appState.weddingDetails = await Firebase.getWeddingDetails();
         if (!appState.weddingDetails) {
             document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento.</div>`;
