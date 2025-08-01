@@ -66,7 +66,6 @@
 
     <!-- Container Principal do Aplicativo -->
     <div id="app-container" class="flex flex-col h-screen opacity-0 transition-opacity duration-300">
-        <!-- ... (resto do HTML do container, header, main, nav) ... -->
         <header class="border-b border-gray-200 dark:border-gray-800 bg-light-card dark:bg-dark-card shadow-sm sticky top-0 z-30">
             <div class="flex items-center justify-between px-4 py-3 max-w-screen-lg mx-auto">
                 <div id="page-title" class="font-cursive text-2xl text-primary dark:text-dark-primary"></div>
@@ -89,18 +88,15 @@
         </nav>
     </div>
     
-    <!-- Scripts do Firebase -->
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-storage-compat.js" defer></script>
+    
+    <!-- CORREÇÃO: Biblioteca correta para gerar o QR Code visual -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js" defer></script>
-
-
     
-    <!-- CORREÇÃO: O script da biblioteca PIX foi removido daqui -->
-    
-    <!-- Script principal da aplicação -->
     <script type="module" src="js/app.js"></script>
 
 </body>
