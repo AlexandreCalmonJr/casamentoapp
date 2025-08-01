@@ -1,6 +1,5 @@
-// js/ui.js
 /**
- * MELHORIA: Otimiza uma URL do Cloudinary para uma thumbnail.
+ * Otimiza uma URL do Cloudinary para uma thumbnail.
  * @param {string} url - A URL original.
  * @param {string} transformations - As transformações a serem aplicadas.
  * @returns {string} A URL otimizada.
@@ -13,7 +12,7 @@ function getOptimizedCloudinaryUrl(url, transformations = 'w_400,h_400,c_fill,q_
 }
 
 /**
- * MELHORIA: Ativa/desativa o estado de carregamento de um botão.
+ * Ativa/desativa o estado de carregamento de um botão.
  * @param {HTMLElement} button - O elemento do botão.
  * @param {boolean} isLoading - Se deve mostrar o estado de carregamento.
  */
@@ -205,6 +204,12 @@ function updateNavButtons(activeView) {
     });
 }
 
+/**
+ * CORREÇÃO: A variável do intervalo agora é armazenada e limpa corretamente.
+ * Inicia ou atualiza a contagem regressiva.
+ * @param {Date} weddingDate - A data do casamento.
+ * @returns {number|null} O ID do intervalo, ou nulo se a data for inválida.
+ */
 export function updateCountdown(weddingDate) {
     const countdownEl = document.getElementById('countdown');
     if (!countdownEl) return null;
@@ -215,12 +220,14 @@ export function updateCountdown(weddingDate) {
     }
 
     const targetTime = weddingDate.getTime();
-    
+    let intervalId = null; // Variável para guardar o ID do intervalo
+
     const update = () => {
         const distance = targetTime - new Date().getTime();
         if (distance < 0) {
             countdownEl.innerHTML = `<div class="text-xl font-serif text-primary dark:text-dark-primary">O grande dia chegou! 🎉</div>`;
-            return false;
+            if (intervalId) clearInterval(intervalId); // Limpa o intervalo quando o tempo acaba
+            return;
         }
         
         const d = Math.floor(distance / (1000*60*60*24));
@@ -234,12 +241,13 @@ export function updateCountdown(weddingDate) {
             <div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(m).padStart(2,'0')}</div><div class="text-xs">Min</div></div>
             <div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(s).padStart(2,'0')}</div><div class="text-xs">Seg</div></div>
         `;
-        return true;
     };
 
-    if (!update()) return null;
-    return setInterval(() => !update() && clearInterval(this), 1000);
+    update(); // Primeira execução imediata
+    intervalId = setInterval(update, 1000); // Inicia o intervalo e guarda o ID
+    return intervalId;
 }
+
 
 export function renderGuestPhotos(photos) {
     const gallery = document.getElementById('photo-gallery');
@@ -314,7 +322,6 @@ export function renderGiftList(gifts, currentUser, weddingDetails) {
                             ? `<button data-id="${gift.id}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>`
                             : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`
                           )
-                        // MELHORIA: Botão agora tem data-attributes com os dados do presente
                         : `<button 
                                 data-id="${gift.id}"
                                 data-name="${gift.name}"
@@ -399,7 +406,6 @@ export function toggleAuthModal(show) {
     document.getElementById('auth-modal').classList.toggle('hidden', !show);
 }
 
-// Função auxiliar para gerar o código PIX manualmente
 /**
  * Gera o QR Code no placeholder
  * @param {string} pixCode - O código PIX gerado
@@ -408,12 +414,10 @@ function generateQRCode(pixCode) {
     const placeholder = document.getElementById('qr-placeholder');
     if (!placeholder) return;
 
-    // Limpar o placeholder
-    placeholder.innerHTML = '';
+    placeholder.innerHTML = ''; // Limpar o placeholder
 
     if (window.QRCode) {
         try {
-            // Gerar o QR Code usando QRCode.js
             new window.QRCode(placeholder, {
                 text: pixCode,
                 width: 200,
@@ -433,7 +437,8 @@ function generateQRCode(pixCode) {
 }
 
 /**
- * Configura o botão de copiar código PIX
+ * CORREÇÃO: Removido o `alert()` e melhorado o feedback de erro.
+ * Configura o botão de copiar código PIX.
  */
 function setupCopyButton() {
     const copyButton = document.getElementById('copy-pix-button');
@@ -441,11 +446,11 @@ function setupCopyButton() {
     
     if (copyButton && pixInput) {
         copyButton.addEventListener('click', async () => {
+            const originalIcon = copyButton.innerHTML;
             try {
                 await navigator.clipboard.writeText(pixInput.value);
                 
-                // Feedback visual temporário
-                const originalIcon = copyButton.innerHTML;
+                // Feedback visual de sucesso
                 copyButton.innerHTML = '<i class="fas fa-check text-green-600"></i>';
                 copyButton.classList.add('bg-green-200', 'dark:bg-green-800');
                 
@@ -456,14 +461,28 @@ function setupCopyButton() {
                 
             } catch (error) {
                 console.error('Erro ao copiar:', error);
-                // Fallback para browsers que não suportam clipboard API
-                pixInput.select();
-                document.execCommand('copy');
-                alert('Código PIX copiado!');
+                
+                // Feedback visual de erro, sem usar alert()
+                copyButton.innerHTML = '<i class="fas fa-times text-red-600"></i>';
+                copyButton.classList.add('bg-red-200', 'dark:bg-red-800');
+
+                // Tenta o método antigo como fallback
+                try {
+                    pixInput.select();
+                    document.execCommand('copy');
+                } catch (fallbackError) {
+                    console.error('Erro no fallback de cópia:', fallbackError);
+                }
+
+                setTimeout(() => {
+                    copyButton.innerHTML = originalIcon;
+                    copyButton.classList.remove('bg-red-200', 'dark:bg-red-800');
+                }, 2000);
             }
         });
     }
 }
+
 
 /**
  * Mostra um fallback quando o QR Code não pode ser gerado
@@ -480,30 +499,29 @@ function showQRCodeFallback(placeholder) {
 }
 
 /**
- * CORREÇÃO: Renderiza o modal de pagamento PIX usando QRCode.js
+ * Renderiza o modal de pagamento PIX.
  * @param {object} gift - O objeto do presente { id, name, price }.
  * @param {object} weddingDetails - Detalhes do casamento, incluindo a chave PIX.
  */
 export function renderPixModal(gift, weddingDetails) {
     const pixContainer = document.getElementById('pix-content-container');
     if (!pixContainer || !weddingDetails.pixKey) {
-        alert('A chave PIX dos noivos não foi configurada. Por favor, tente mais tarde.');
+        // CORREÇÃO: Evita `alert` e mostra o erro de forma mais elegante.
+        showToast('A chave PIX dos noivos não foi configurada.', 'error');
         return;
     }
 
-    // Limpa o conteúdo anterior e mostra um spinner
     pixContainer.innerHTML = `<div class="flex justify-center items-center p-10"><i class="fas fa-spinner fa-spin text-3xl text-primary"></i></div>`;
     togglePixModal(true);
 
     try {
-        // Gerar o código PIX manualmente
+        // Gerar o código PIX
         const pixCode = generatePixCode(
             weddingDetails.pixKey,
-            weddingDetails.coupleNames.substring(0, 25),
-            'SALVADOR',
+            weddingDetails.coupleNames,
+            'SALVADOR', // Cidade do recebedor
             parseFloat(gift.price),
-            gift.name,
-            `GIFT${gift.id.substring(0, 15)}`
+            `GIFT-${gift.id}` // ID da transação
         );
 
         // Renderizar o conteúdo do modal
@@ -536,10 +554,8 @@ export function renderPixModal(gift, weddingDetails) {
         // Aguardar um momento para o DOM ser atualizado e então gerar o QR Code
         setTimeout(() => {
             generateQRCode(pixCode);
+            setupCopyButton();
         }, 100);
-
-        // Adicionar event listener para o botão de copiar
-        setupCopyButton();
 
     } catch (error) {
         console.error("Erro ao gerar PIX:", error);
@@ -553,8 +569,18 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 
-// Função auxiliar para gerar o código PIX manualmente
-function generatePixCode(pixKey, name, city, value, message, transactionId) {
+/**
+ * CORREÇÃO: Simplificada para maior compatibilidade. Removido o campo de mensagem não padrão.
+ * Gera uma string de PIX Copia e Cola (BR Code)
+ * @param {string} pixKey - A chave PIX (CPF, CNPJ, email, telefone ou chave aleatória).
+ * @param {string} name - Nome do recebedor (até 25 caracteres).
+ * @param {string} city - Cidade do recebedor (até 15 caracteres).
+ * @param {number} value - O valor da transação.
+ * @param {string} transactionId - Um ID único para a transação (até 25 caracteres).
+ * @returns {string} O código PIX completo.
+ */
+function generatePixCode(pixKey, name, city, value, transactionId) {
+    // Função para calcular o CRC16 (validação do código PIX)
     function crc16(data) {
         let crc = 0xFFFF;
         for (let i = 0; i < data.length; i++) {
@@ -571,65 +597,72 @@ function generatePixCode(pixKey, name, city, value, message, transactionId) {
         return crc.toString(16).toUpperCase().padStart(4, '0');
     }
 
+    // Função para formatar um campo no padrão Tag-Length-Value (TLV)
     function formatField(id, value) {
         const length = value.length.toString().padStart(2, '0');
         return id + length + value;
     }
 
-    let pixCode = '';
-    pixCode += formatField('00', '01'); // Payload Format Indicator
+    // Normaliza e trunca os dados para garantir que se encaixem nos limites do PIX
+    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
+    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
+    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
+
+    let pixString = '';
+    pixString += formatField('00', '01'); // Payload Format Indicator
     
-    // Merchant Account Information
+    // Merchant Account Information (Informações da Conta)
     let merchantInfo = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', pixKey);
-    pixCode += formatField('26', merchantInfo);
+    pixString += formatField('26', merchantInfo);
     
-    pixCode += formatField('52', '0000'); // Merchant Category Code
-    pixCode += formatField('53', '986');  // Transaction Currency (BRL)
+    pixString += formatField('52', '0000'); // Merchant Category Code (sempre 0000)
+    pixString += formatField('53', '986');  // Transaction Currency (BRL - Real Brasileiro)
     
-    // Transaction Amount (opcional)
+    // Transaction Amount (Valor)
     if (value && value > 0) { 
-        pixCode += formatField('54', value.toFixed(2)); 
+        pixString += formatField('54', value.toFixed(2)); 
     }
     
-    pixCode += formatField('58', 'BR'); // Country Code
-    pixCode += formatField('59', name.substring(0, 25)); // Merchant Name
-    pixCode += formatField('60', city.substring(0, 15)); // Merchant City
+    pixString += formatField('58', 'BR'); // Country Code (Brasil)
+    pixString += formatField('59', sanitizedName); // Merchant Name (Nome do Recebedor)
+    pixString += formatField('60', sanitizedCity); // Merchant City (Cidade do Recebedor)
     
-    // Additional Data Field Template
-    let additionalData = formatField('05', transactionId ? transactionId.substring(0, 25) : '***');
-    if (message) { 
-        additionalData += formatField('02', message.substring(0, 50)); 
-    }
-    pixCode += formatField('62', additionalData);
+    // Additional Data Field (Campo de Dados Adicionais com o ID da Transação)
+    let additionalData = formatField('05', sanitizedTxId);
+    pixString += formatField('62', additionalData);
     
-    // CRC16
-    pixCode += '6304';
-    const crc = crc16(pixCode);
-    pixCode += crc;
+    // CRC16 (Checksum de Validação)
+    pixString += '6304';
+    const crc = crc16(pixString);
+    pixString += crc;
     
-    return pixCode;
+    return pixString;
 }
+
 
 export function togglePixModal(show) {
     const pixModal = document.getElementById('pix-modal');
     pixModal.classList.toggle('hidden', !show);
 }
 
-export function initializePixButtons(weddingDetails) {
-    document.querySelectorAll('.present-with-pix-btn').forEach(btn => {
-        // Remove listener antigo para evitar duplicação
-        btn.replaceWith(btn.cloneNode(true));
-    });
+/**
+ * MELHORIA: Usa delegação de eventos para gerenciar os cliques nos botões de presente.
+ * Isso é mais eficiente do que adicionar um listener para cada botão individualmente.
+ * @param {object} weddingDetails - Os detalhes do casamento.
+ */
+export function initializeGiftEventListeners(weddingDetails) {
+    const container = document.getElementById('gift-list-container');
+    if (!container) return;
 
-    // Adiciona o listener aos novos botões clonados
-    document.querySelectorAll('.present-with-pix-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+    container.addEventListener('click', (e) => {
+        const pixButton = e.target.closest('.present-with-pix-btn');
+        if (pixButton) {
             const gift = {
-                id: e.currentTarget.dataset.id,
-                name: e.currentTarget.dataset.name,
-                price: parseFloat(e.currentTarget.dataset.price)
+                id: pixButton.dataset.id,
+                name: pixButton.dataset.name,
+                price: parseFloat(pixButton.dataset.price)
             };
             renderPixModal(gift, weddingDetails);
-        });
+        }
     });
 }
