@@ -1,12 +1,17 @@
 // js/admin-app.js
 
+// CORREÇÃO DEFINITIVA: Importa a biblioteca QRCode como um módulo ES.
+// Isso garante que ela esteja disponível e seja a versão correta antes de qualquer código ser executado.
+import QRCode from 'https://cdn.skypack.dev/qrcode';
+
 import * as UI from './admin-ui.js';
 import { adminEmails } from './config.js';
 import { auth, db } from './firebase-service.js';
 
+
 // --- Estado da Aplicação Admin ---
 const state = {
-    currentTab: 'report', // Aba inicial
+    currentTab: 'report',
     unsubscribe: {}, 
 };
 
@@ -25,7 +30,49 @@ const DOMElements = {
     sidebar: document.getElementById('sidebar'),
 };
 
-// --- Funções de Lógica e Eventos ---
+
+// --- CORREÇÃO: A função showShareModal agora é mais simples ---
+// Não precisa mais ser 'async' para este propósito, pois o 'import' no topo já resolveu a dependência.
+function showShareModal(guestName, key, allowedGuests, phone) {
+    const siteBaseUrl = window.location.origin;
+    const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
+
+    document.getElementById('modal-guest-name').textContent = guestName;
+    document.getElementById('modal-allowed-guests').textContent = allowedGuests;
+    document.getElementById('invite-link').value = fullLink;
+
+    const canvas = document.getElementById('qrcode');
+    
+    // Esta linha agora funcionará de forma confiável.
+    QRCode.toCanvas(canvas, fullLink, { width: 200, errorCorrectionLevel: 'H' }, function (error) {
+        if (error) {
+            console.error("Erro na geração do QR Code:", error);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillText('Erro ao gerar QR Code.', 10, 20);
+        } else {
+            document.getElementById('download-qr-button').href = canvas.toDataURL();
+        }
+    });
+
+    const whatsappBtn = document.getElementById('whatsapp-share-button');
+    if (phone) {
+        const cleanPhone = phone.replace(/\D/g, '');
+        const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Alexandre & Andressa. ${fullLink}`;
+        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
+        
+        whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
+        whatsappBtn.classList.remove('hidden');
+    } else {
+        whatsappBtn.classList.add('hidden');
+    }
+
+    DOMElements.shareModal.classList.remove('hidden');
+}
+
+
+// --- Funções de Lógica e Eventos (O restante do arquivo permanece igual) ---
 
 function handleGoogleLogin() {
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -110,14 +157,13 @@ async function handleAddGift(event) {
     const name = document.getElementById('gift-name').value;
     const description = document.getElementById('gift-description').value;
     const imageUrl = document.getElementById('gift-image-url').value;
-    // MELHORIA: Pega o valor do presente
     const price = parseFloat(document.getElementById('gift-price').value) || 0;
 
     await db.collection('giftList').add({
         name,
         description,
         imageUrl,
-        price, // Salva o valor
+        price,
         isTaken: false,
         takenBy: null
     });
@@ -142,7 +188,6 @@ async function handleEditGift(event) {
     const giftDoc = await db.collection('giftList').doc(giftId).get();
     const gift = giftDoc.data();
 
-    // MELHORIA: Permite editar o preço também
     const newName = prompt("Editar nome do presente:", gift.name);
     const newPrice = prompt("Editar valor do presente (R$):", gift.price || '0');
     const newImageUrl = prompt("Editar URL da imagem:", gift.imageUrl);
@@ -251,9 +296,6 @@ function handleShareKey(event) {
     showShareModal(keyData.guestName, keyData.id, keyData.allowedGuests, keyData.guestPhone);
 }
 
-
-// --- Funções Principais de Carregamento ---
-
 function cleanupListeners() {
     Object.values(state.unsubscribe).forEach(unsub => {
         if (typeof unsub === 'function') unsub();
@@ -324,39 +366,6 @@ async function loadTab(tabName) {
     }
 }
 
-function showShareModal(guestName, key, allowedGuests, phone) {
-    const siteBaseUrl = window.location.origin;
-    const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
-
-    document.getElementById('modal-guest-name').textContent = guestName;
-    document.getElementById('modal-allowed-guests').textContent = allowedGuests;
-    document.getElementById('invite-link').value = fullLink;
-
-    const canvas = document.getElementById('qrcode');
-    QRCode.toCanvas(canvas, fullLink, { width: 200 }, function (error) {
-        if (error) console.error(error);
-        document.getElementById('download-qr-button').href = canvas.toDataURL();
-    });
-
-    const whatsappBtn = document.getElementById('whatsapp-share-button');
-    if (phone) {
-        const cleanPhone = phone.replace(/\D/g, '');
-        const message = `Olá, ${guestName}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Alexandre & Andressa. ${fullLink}`;
-        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
-        
-        whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
-        whatsappBtn.classList.remove('hidden');
-    } else {
-        whatsappBtn.classList.add('hidden');
-    }
-
-    DOMElements.shareModal.classList.remove('hidden');
-}
-
-
-// --- Funções de Inicialização ---
-
 function setupEventListeners() {
     DOMElements.googleLoginBtn.addEventListener('click', handleGoogleLogin);
     DOMElements.logoutBtn.addEventListener('click', () => auth.signOut());
@@ -407,5 +416,4 @@ function initAdminDashboard() {
     setupAuthObserver();
 }
 
-// Inicia a aplicação do painel de admin
 initAdminDashboard();
