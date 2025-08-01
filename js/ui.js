@@ -1,5 +1,4 @@
 // js/ui.js
-
 /**
  * MELHORIA: Otimiza uma URL do Cloudinary para uma thumbnail.
  * @param {string} url - A URL original.
@@ -400,43 +399,198 @@ export function toggleAuthModal(show) {
     document.getElementById('auth-modal').classList.toggle('hidden', !show);
 }
 
+// Função auxiliar para gerar o código PIX manualmente
+function generatePixCode(pixKey, name, city, value, message, transactionId) {
+    // Função para calcular CRC16
+    function crc16(data) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc ^= data.charCodeAt(i) << 8;
+            for (let j = 0; j < 8; j++) {
+                if (crc & 0x8000) {
+                    crc = (crc << 1) ^ 0x1021;
+                } else {
+                    crc <<= 1;
+                }
+                crc &= 0xFFFF;
+            }
+        }
+        return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    // Função para formatar campo PIX
+    function formatField(id, value) {
+        const length = value.length.toString().padStart(2, '0');
+        return id + length + value;
+    }
+
+    // Construir o código PIX
+    let pixCode = '';
+    
+    // Payload Format Indicator
+    pixCode += formatField('00', '01');
+    
+    // Point of Initiation Method (opcional)
+    pixCode += formatField('01', '12');
+    
+    // Merchant Account Information
+    let merchantInfo = '';
+    merchantInfo += formatField('00', 'BR.GOV.BCB.PIX');
+    merchantInfo += formatField('01', pixKey);
+    pixCode += formatField('26', merchantInfo);
+    
+    // Merchant Category Code
+    pixCode += formatField('52', '0000');
+    
+    // Transaction Currency (BRL)
+    pixCode += formatField('53', '986');
+    
+    // Transaction Amount
+    if (value && value > 0) {
+        pixCode += formatField('54', value.toFixed(2));
+    }
+    
+    // Country Code
+    pixCode += formatField('58', 'BR');
+    
+    // Merchant Name
+    pixCode += formatField('59', name.substring(0, 25));
+    
+    // Merchant City
+    pixCode += formatField('60', city.substring(0, 15));
+    
+    // Additional Data Field Template
+    if (message || transactionId) {
+        let additionalData = '';
+        if (transactionId) {
+            additionalData += formatField('05', transactionId.substring(0, 25));
+        }
+        if (message) {
+            additionalData += formatField('02', message.substring(0, 50));
+        }
+        pixCode += formatField('62', additionalData);
+    }
+    
+    // CRC16
+    const crcField = '6304';
+    const fullCode = pixCode + crcField;
+    const crc = crc16(fullCode);
+    pixCode += crcField + crc;
+    
+    return pixCode;
+}
+
 /**
- * MELHORIA: Renderiza o modal de pagamento PIX.
+ * CORREÇÃO: Renderiza o modal de pagamento PIX usando QRCode.js
  * @param {object} gift - O objeto do presente { id, name, price }.
  * @param {object} weddingDetails - Detalhes do casamento, incluindo a chave PIX.
- */export function renderPixModal(gift, weddingDetails) {
+ */
+export async function renderPixModal(gift, weddingDetails) {
     const pixContainer = document.getElementById('pix-content-container');
     if (!pixContainer || !weddingDetails.pixKey) {
         alert('A chave PIX dos noivos não foi configurada. Por favor, tente mais tarde.');
         return;
     }
 
-    // CORREÇÃO: Acessar a biblioteca e usar o método create() com a estrutura de objeto correta.
-    const { QrcodePix } = window;
-    if (!QrcodePix) {
-        alert('Erro ao carregar a funcionalidade PIX. Por favor, recarregue a página.');
-        return;
-    }
-
-    const pixPayload = QrcodePix.create({
-        version: '01',
-        key: weddingDetails.pixKey,
-        name: weddingDetails.coupleNames.substring(0, 25),
-        city: 'SALVADOR', // Cidade com no máximo 15 caracteres
-        transactionId: `GIFT${gift.id.substring(0, 15)}***`, // ID único para a transação
-        value: gift.price,
-        message: gift.name,
-    });
-    
-    const pixCode = pixPayload.payload();
-
-    pixContainer.innerHTML = `<div class="text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2><p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p><div id="pix-qrcode-container" class="p-2 bg-white rounded-lg inline-block"></div><p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${gift.price.toFixed(2).replace('.', ',')}</p><div class="mt-6"><p class="text-sm font-medium mb-2">1. Abra a app do seu banco e escolha pagar com QR Code.</p><p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p><div class="flex items-center"><input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md"><button id="copy-pix-button" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button></div></div><div class="mt-8 border-t dark:border-gray-700 pt-4"><p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente e evitar que outra pessoa o escolha.</p><button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"><i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!</button></div></div>`;
-    
-    pixPayload.toCanvas(document.getElementById('pix-qrcode-container'));
+    // Limpa o conteúdo anterior e mostra um spinner
+    pixContainer.innerHTML = `<div class="flex justify-center items-center p-10"><i class="fas fa-spinner fa-spin text-3xl text-primary"></i></div>`;
     togglePixModal(true);
+
+    try {
+        // Gerar o código PIX manualmente
+        const pixCode = generatePixCode(
+            weddingDetails.pixKey,
+            weddingDetails.coupleNames.substring(0, 25),
+            'SALVADOR',
+            parseFloat(gift.price),
+            gift.name,
+            `GIFT${gift.id.substring(0, 15)}`
+        );
+
+        // Criar container para o QR Code
+        const qrContainer = document.createElement('div');
+        qrContainer.id = 'qrcode-container';
+        qrContainer.className = 'flex justify-center p-4 bg-white rounded-lg mx-auto mb-4';
+        qrContainer.style.width = 'fit-content';
+
+        pixContainer.innerHTML = `
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p>
+                
+                <div id="qr-placeholder" class="mx-auto mb-4"></div>
+                
+                <p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p>
+                
+                <div class="mt-6">
+                    <p class="text-sm font-medium mb-2">1. Abra a app do seu banco e aponte a câmara para o QR Code.</p>
+                    <p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p>
+                    <div class="flex items-center">
+                        <input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md">
+                        <button id="copy-pix-button" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+                
+                <div class="mt-8 border-t dark:border-gray-700 pt-4">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente.</p>
+                    <button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">
+                        <i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!
+                    </button>
+                </div>
+            </div>`;
+
+        // Aguardar um momento para o DOM ser atualizado
+        setTimeout(() => {
+            const placeholder = document.getElementById('qr-placeholder');
+            if (placeholder && window.QRCode) {
+                placeholder.appendChild(qrContainer);
+                
+                // Gerar o QR Code
+                new window.QRCode(qrContainer, {
+                    text: pixCode,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: window.QRCode.CorrectLevel.M
+                });
+            } else {
+                // Fallback se QRCode.js não estiver disponível
+                placeholder.innerHTML = `
+                    <div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-8 text-center">
+                        <i class="fas fa-qrcode text-4xl text-gray-500 mb-2"></i>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Use o código PIX abaixo</p>
+                    </div>
+                `;
+            }
+        }, 100);
+
+    } catch (error) {
+        console.error("Erro ao gerar PIX:", error);
+        pixContainer.innerHTML = `<p class="text-center text-red-500">Ocorreu um erro ao gerar o código PIX. Por favor, tente novamente.</p>`;
+    }
 }
 
 export function togglePixModal(show) {
     const pixModal = document.getElementById('pix-modal');
     pixModal.classList.toggle('hidden', !show);
+}
+
+export function initializePixButtons(weddingDetails) {
+    document.querySelectorAll('.present-with-pix-btn').forEach(btn => {
+        // Remove listener antigo para evitar duplicação
+        btn.replaceWith(btn.cloneNode(true));
+    });
+
+    // Adiciona o listener aos novos botões clonados
+    document.querySelectorAll('.present-with-pix-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const gift = {
+                id: e.currentTarget.dataset.id,
+                name: e.currentTarget.dataset.name,
+                price: parseFloat(e.currentTarget.dataset.price)
+            };
+            renderPixModal(gift, weddingDetails);
+        });
+    });
 }
