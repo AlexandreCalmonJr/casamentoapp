@@ -221,9 +221,17 @@ function setupAuthFormListeners() {
     document.getElementById('signup-form')?.addEventListener('submit', handleSignupSubmit);
     document.getElementById('show-signup')?.addEventListener('click', handleAuthFormSwitch);
     document.getElementById('show-login')?.addEventListener('click', handleAuthFormSwitch);
-    document.getElementById('google-login-modal-button')?.addEventListener('click', handleGoogleLoginClick);
+    
+    // Botões de login social
+    document.getElementById('google-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('google'));
+    document.getElementById('facebook-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('facebook'));
+    document.getElementById('apple-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('apple'));
+    
+    // Botões de cadastro social
+    document.getElementById('google-signup-button')?.addEventListener('click', (e) => handleSocialSignup('google'));
+    document.getElementById('facebook-signup-button')?.addEventListener('click', (e) => handleSocialSignup('facebook'));
+    document.getElementById('apple-signup-button')?.addEventListener('click', (e) => handleSocialSignup('apple'));
 }
-
 function setupViewSpecificListeners() {
     cleanupListeners();
 
@@ -368,6 +376,101 @@ function setupModalListeners() {
             }
         }
     });
+}
+
+async function handleSocialLogin(provider) {
+    const errorEl = document.getElementById('auth-error');
+    const button = event.currentTarget;
+    errorEl.classList.add('hidden');
+    UI.setButtonLoading(button, true);
+    
+    try {
+        let result;
+        switch(provider) {
+            case 'google':
+                result = await Firebase.signInWithGoogle();
+                break;
+            case 'facebook':
+                result = await Firebase.signInWithFacebook();
+                break;
+            case 'apple':
+                result = await Firebase.signInWithApple();
+                break;
+        }
+    } catch (error) {
+        console.error(`${provider} Sign-In Error:`, error);
+        errorEl.textContent = `Erro ao fazer login com ${provider}.`;
+        errorEl.classList.remove('hidden');
+    } finally {
+        UI.setButtonLoading(button, false);
+    }
+}
+
+async function handleSocialSignup(provider) {
+    const errorEl = document.getElementById('auth-error');
+    const button = event.currentTarget;
+    const key = document.getElementById('signup-key')?.value.trim();
+    
+    errorEl.classList.add('hidden');
+    
+    if (!key) {
+        errorEl.textContent = "Chave de acesso é obrigatória.";
+        return errorEl.classList.remove('hidden');
+    }
+    
+    UI.setButtonLoading(button, true);
+    
+    try {
+        // Valida a chave primeiro
+        const { isValid, isUsed, docId, data, error } = await handleAccessKeyValidation(key);
+        if (error || !isValid || isUsed) {
+            errorEl.textContent = isUsed ? "Esta chave já foi utilizada." : "Chave de acesso inválida.";
+            return errorEl.classList.remove('hidden');
+        }
+        
+        // Faz o login social
+        let result;
+        switch(provider) {
+            case 'google':
+                result = await Firebase.signInWithGoogle();
+                break;
+            case 'facebook':
+                result = await Firebase.signInWithFacebook();
+                break;
+            case 'apple':
+                result = await Firebase.signInWithApple();
+                break;
+        }
+        
+        const user = result.user;
+        
+        // Mostra modal para coletar dados adicionais
+        UI.showSocialSignupModal(data, async ({ guestNames, willAttendRestaurant }) => {
+            try {
+                await Firebase.signupUser({
+                    name: user.displayName || guestNames[0],
+                    email: user.email,
+                    password: null,
+                    keyDocId: docId,
+                    guestNames: guestNames,
+                    willAttendRestaurant: willAttendRestaurant,
+                    socialProvider: provider,
+                    user: user
+                });
+            } catch (error) {
+                console.error(`Erro no cadastro com ${provider}:`, error);
+                errorEl.textContent = `Erro ao criar conta com ${provider}.`;
+                errorEl.classList.remove('hidden');
+            }
+        });
+        
+    } catch (error) {
+        console.error(`Erro no cadastro com ${provider}:`, error);
+        errorEl.textContent = `Erro ao criar conta com ${provider}.`;
+        errorEl.classList.remove('hidden');
+    } finally {
+        UI.setButtonLoading(button, false);
+    }
 }
 
 async function initApp() {

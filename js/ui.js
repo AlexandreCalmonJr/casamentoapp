@@ -372,10 +372,46 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
             <button type="submit" class="w-full py-2 bg-primary text-white rounded">Entrar</button>
             <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se</button></p>
         </form>
-        <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b"><p class="text-center text-xs mx-4">OU</p></div>
-        <button id="google-login-modal-button" class="w-full py-2 bg-blue-600 text-white rounded flex items-center justify-center"><i class="fab fa-google mr-2"></i>Entrar com Google</button>
+        
+        <!-- SEÇÃO DE LOGIN SOCIAL -->
+        <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b">
+            <p class="text-center text-xs mx-4 text-gray-500">OU ENTRE COM</p>
+        </div>
+        
+        <div class="space-y-3">
+            <button id="google-login-modal-button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center transition-colors">
+                <i class="fab fa-google mr-2"></i>Entrar com Google
+            </button>
+            <button id="facebook-login-modal-button" class="w-full py-2 bg-blue-800 hover:bg-blue-900 text-white rounded flex items-center justify-center transition-colors">
+                <i class="fab fa-facebook-f mr-2"></i>Entrar com Facebook
+            </button>
+            <button id="apple-login-modal-button" class="w-full py-2 bg-black hover:bg-gray-800 text-white rounded flex items-center justify-center transition-colors">
+                <i class="fab fa-apple mr-2"></i>Entrar com Apple
+            </button>
+        </div>
     ` : `
         <h2 class="text-2xl font-serif mb-4 text-center">Cadastro de Convidado</h2>
+        
+        <!-- OPÇÃO DE CADASTRO COM REDES SOCIAIS -->
+        <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">Cadastro Rápido</h3>
+            <div class="space-y-2">
+                <button id="google-signup-button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center transition-colors">
+                    <i class="fab fa-google mr-2"></i>Cadastrar com Google
+                </button>
+                <button id="facebook-signup-button" class="w-full py-2 bg-blue-800 hover:bg-blue-900 text-white rounded flex items-center justify-center transition-colors">
+                    <i class="fab fa-facebook-f mr-2"></i>Cadastrar com Facebook
+                </button>
+                <button id="apple-signup-button" class="w-full py-2 bg-black hover:bg-gray-800 text-white rounded flex items-center justify-center transition-colors">
+                    <i class="fab fa-apple mr-2"></i>Cadastrar com Apple
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b">
+            <p class="text-center text-xs mx-4 text-gray-500">OU CADASTRE-SE COM EMAIL</p>
+        </div>
+        
         <form id="signup-form" class="space-y-4" novalidate>
             <div><label class="block text-sm">Chave de Acesso</label><input type="text" id="signup-key" value="${accessKey}" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required ${accessKey ? 'readonly' : ''}></div>
             <div id="guest-names-container"></div>
@@ -664,5 +700,73 @@ export function initializeGiftEventListeners(weddingDetails) {
             };
             renderPixModal(gift, weddingDetails);
         }
+    });
+}
+
+export function showSocialSignupModal(keyData, onComplete) {
+    const modalHTML = `
+        <div id="social-signup-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-semibold mb-4">Complete seu cadastro</h3>
+                <form id="social-signup-form" class="space-y-4">
+                    <div id="social-guest-names-container"></div>
+                    <div class="border-t pt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante?</label>
+                        <div class="flex space-x-4 mt-2">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="social-attend-restaurant" value="yes" class="text-primary" checked>
+                                <span class="ml-2">Sim, irei!</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="social-attend-restaurant" value="no" class="text-primary">
+                                <span class="ml-2">Apenas cerimônia</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 pt-4">
+                        <button type="button" id="cancel-social-signup" class="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded">Cancelar</button>
+                        <button type="submit" class="flex-1 py-2 px-4 bg-primary text-white rounded">Confirmar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Gera inputs para nomes dos convidados
+    const container = document.getElementById('social-guest-names-container');
+    container.innerHTML = `<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirme os nomes dos convidados:</label>`;
+    
+    for (let i = 0; i < keyData.allowedGuests; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'social-guest-name-input w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600';
+        input.placeholder = `Nome do Convidado ${i + 1}`;
+        input.required = true;
+        container.appendChild(input);
+    }
+    
+    // Event listeners
+    document.getElementById('cancel-social-signup').addEventListener('click', () => {
+        document.getElementById('social-signup-modal').remove();
+    });
+    
+    document.getElementById('social-signup-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const guestNames = Array.from(document.querySelectorAll('.social-guest-name-input'))
+            .map(input => input.value.trim())
+            .filter(name => name);
+            
+        const willAttendRestaurant = document.querySelector('input[name="social-attend-restaurant"]:checked')?.value === 'yes';
+        
+        if (guestNames.length === 0) {
+            alert('Pelo menos um nome de convidado é obrigatório.');
+            return;
+        }
+        
+        document.getElementById('social-signup-modal').remove();
+        onComplete({ guestNames, willAttendRestaurant });
     });
 }
