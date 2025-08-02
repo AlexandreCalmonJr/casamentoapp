@@ -282,7 +282,9 @@ function setupViewSpecificListeners() {
                 }
             }
         });
-        if (appState.accessKey) {
+        
+        // Se há uma chave de acesso na URL, mostra automaticamente o formulário de cadastro
+        if (appState.accessKey && !appState.currentUser) {
             setTimeout(async () => {
                 const { isValid, isUsed, data } = await handleAccessKeyValidation(appState.accessKey);
                 if (isValid && !isUsed) {
@@ -386,8 +388,9 @@ async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         appState.accessKey = urlParams.get('key');
         
+        // Se há uma chave de acesso na URL, vai direto para a view de acesso
         if (appState.accessKey) {
-            // ...
+            appState.currentView = 'rsvp';
         }
         
         Firebase.auth.onAuthStateChanged(user => {
