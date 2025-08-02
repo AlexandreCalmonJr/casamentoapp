@@ -83,9 +83,22 @@ export function loginUser(email, password) {
  * @param {Object} userData - Dados do usuário {name, email, password, keyDocId, guestNames, willAttendRestaurant}.
  * @returns {Promise<void>}
  */
-export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant }) {
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    await userCredential.user.updateProfile({ displayName: name });
+export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
+    let userCredential;
+    
+    if (socialProvider && user) {
+        // Se é login social, o usuário já foi autenticado
+        userCredential = { user };
+        
+        // Atualiza o displayName se necessário
+        if (!user.displayName || user.displayName !== name) {
+            await user.updateProfile({ displayName: name });
+        }
+    } else {
+        // Login tradicional com email/senha
+        userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        await userCredential.user.updateProfile({ displayName: name });
+    }
     
     const keyRef = db.collection('accessKeys').doc(keyDocId);
     
@@ -100,9 +113,10 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
     // Marca a chave como usada e salva a resposta do restaurante
     await keyRef.update({
         isUsed: true,
-        usedByEmail: email,
+        usedByEmail: userCredential.user.email,
         usedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        willAttendRestaurant: willAttendRestaurant
+        willAttendRestaurant: willAttendRestaurant,
+        authMethod: socialProvider || 'email' // Registra o método de autenticação usado
     });
 }
 
@@ -254,4 +268,23 @@ export function unmarkGiftAsTaken(giftId) {
         isTaken: false,
         takenBy: null
     });
+}
+
+/**
+ * Login com Apple
+ */
+export function signInWithApple() {
+    const provider = new firebase.auth.OAuthProvider('apple.com');
+    provider.addScope('email');
+    provider.addScope('name');
+    return auth.signInWithPopup(provider);
+}
+
+/**
+ * Login com Facebook
+ */
+export function signInWithFacebook() {
+    const provider = new firebase.auth.FacebookAuthProvider();
+    provider.addScope('email');
+    return auth.signInWithPopup(provider);
 }
