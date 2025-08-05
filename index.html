@@ -11,7 +11,6 @@
     <!-- Notyf Toast Notifications -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
     
-    <!-- Script de Configuração do Tailwind -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -40,7 +39,6 @@
             }
         }
     </script>
-    <!-- Custom Styles -->
     <link href="css/style.css" rel="stylesheet">
 </head>
 <body class="bg-light-background dark:bg-dark-background text-gray-800 dark:text-gray-200 min-h-screen flex flex-col transition-colors duration-300">
@@ -86,10 +84,12 @@
         </header>
         <main class="flex-1 overflow-auto custom-scrollbar"><div id="main-content" class="max-w-screen-lg mx-auto px-4 py-6 pb-24"></div></main>
         <nav class="fixed bottom-0 left-0 right-0 bg-light-card dark:bg-dark-card border-t border-gray-200 dark:border-gray-800 shadow-lg">
+            <!-- CORREÇÃO: Botão "Fotos" adicionado de volta -->
             <div class="flex justify-around max-w-screen-lg mx-auto">
                 <button data-view="home" aria-label="Ir para Início" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-home text-xl"></i><span class="block text-xs mt-1">Início</span></button>
                 <button data-view="details" aria-label="Ver Detalhes" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-info-circle text-xl"></i><span class="block text-xs mt-1">Detalhes</span></button>
                 <button data-view="guest-photos" aria-label="Ver Fotos" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-camera-retro text-xl"></i><span class="block text-xs mt-1">Fotos</span></button>
+                <button data-view="activities" aria-label="Ver Atividades" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-star text-xl"></i><span class="block text-xs mt-1">Atividades</span></button>
                 <button data-view="guestbook" aria-label="Ver Mural de Recados" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-book-open text-xl"></i><span class="block text-xs mt-1">Recados</span></button>
                 <button data-view="gifts" aria-label="Ver Lista de Presentes" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-gift text-xl"></i><span class="block text-xs mt-1">Presentes</span></button>
                 <button data-view="rsvp" aria-label="Acessar área do convidado" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-envelope text-xl"></i><span class="block text-xs mt-1">Acesso</span></button>
@@ -97,15 +97,11 @@
         </nav>
     </div>
     
-    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js" defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-storage-compat.js" defer></script>
-    
-    <!-- Biblioteca de QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js" defer></script>
-    <!-- Biblioteca de Notificações Toast -->
     <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
     
     <script type="module" src="js/app.js"></script>

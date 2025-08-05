@@ -6,7 +6,7 @@
     <title>Dashboard - Casamento</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #a0aec0; border-radius: 3px; }
@@ -25,7 +25,6 @@
 </head>
 <body class="bg-gray-100 font-sans">
 
-    <!-- CORREÇÃO: Tela de Login visível por padrão. Sem tela de carregamento. -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center">
         <div class="bg-white p-8 rounded-xl shadow-lg text-center max-w-sm w-full">
             <h1 class="text-2xl font-bold text-gray-700 mb-2">Painel Administrativo</h1>
@@ -37,56 +36,46 @@
         </div>
     </div>
 
-    <!-- Layout Principal do Dashboard (hidden por padrão) -->
     <div id="admin-dashboard" class="hidden">
         <div class="flex h-screen bg-gray-100">
-            <!-- Barra Lateral (Sidebar) -->
             <aside id="sidebar" class="w-64 bg-gray-800 text-white flex-shrink-0 p-4 fixed lg:relative h-full z-20 transform -translate-x-full lg:translate-x-0 transition-transform">
                 <div class="flex items-center mb-8">
                     <i class="fas fa-ring text-3xl text-indigo-400"></i>
                     <h1 class="text-2xl font-bold ml-3">Meu Casamento</h1>
                 </div>
-                <nav id="sidebar-nav">
-                    <!-- Links de navegação serão inseridos aqui pelo JS -->
-                </nav>
+                <nav id="sidebar-nav"></nav>
             </aside>
 
-            <!-- Conteúdo Principal -->
             <div class="flex-1 flex flex-col overflow-hidden">
-                <!-- Cabeçalho do Conteúdo -->
                 <header class="bg-white shadow-md">
                     <div class="flex justify-between items-center p-4">
-                        <button id="mobile-menu-button" class="lg:hidden text-gray-600">
+                        <button id="mobile-menu-button" aria-label="Abrir menu" class="lg:hidden text-gray-600">
                             <i class="fas fa-bars text-2xl"></i>
                         </button>
                         <div class="flex-1"></div>
                         <div class="flex items-center">
                             <span id="admin-email" class="text-sm text-gray-600 mr-4 hidden md:block"></span>
-                            <button id="logout-button" class="text-sm text-red-500 hover:underline flex items-center">
+                            <button id="logout-button" aria-label="Sair" class="text-sm text-red-500 hover:underline flex items-center">
                                 <i class="fas fa-sign-out-alt mr-1"></i> Sair
                             </button>
                         </div>
                     </div>
                 </header>
-
-                <!-- Área de Conteúdo Rolável -->
                 <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6 custom-scrollbar">
-                    <div id="tab-content" class="container mx-auto">
-                        <!-- Conteúdo da aba será injetado aqui -->
-                    </div>
+                    <div id="tab-content" class="container mx-auto"></div>
                 </main>
             </div>
         </div>
     </div>
 
-    <!-- Modais (não alterados) -->
+    <!-- Modais -->
     <div id="share-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white p-6 rounded-xl shadow-lg text-center max-w-sm w-full relative">
             <button id="close-share-modal" aria-label="Fechar modal de compartilhamento" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             <h2 class="text-xl font-bold text-gray-800 mb-4">Convite Gerado!</h2>
             <p class="text-sm mb-1">Para: <strong id="modal-guest-name"></strong></p>
             <p class="text-xs text-gray-500 mb-4">(Válido para <strong id="modal-allowed-guests"></strong> pessoa(s))</p>
-            <canvas id="qrcode" class="mx-auto border rounded-lg"></canvas>
+            <div id="qrcode" class="mx-auto border rounded-lg w-[208px] h-[208px] p-2 bg-white flex items-center justify-center"></div>
             <div class="mt-4 space-y-3">
                 <a id="download-qr-button" href="#" download="qrcode-convite.png" class="block w-full py-2 px-4 bg-gray-800 text-white rounded hover:bg-gray-900 text-sm"><i class="fas fa-download mr-2"></i>Baixar QR Code</a>
                 <div>
@@ -110,12 +99,19 @@
             </div>
         </div>
     </div>
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white p-6 rounded-xl shadow-lg max-w-md w-full relative">
+            <button id="close-edit-modal" aria-label="Fechar modal de edição" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            <h2 id="edit-modal-title" class="text-xl font-bold text-gray-800 mb-4">Editar Item</h2>
+            <form id="edit-modal-form" class="space-y-4"></form>
+        </div>
+    </div>
 
-    <!-- Firebase e Scripts da Aplicação -->
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-storage-compat.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <script type="module" src="js/admin-app.js"></script>
 </body>
 </html>

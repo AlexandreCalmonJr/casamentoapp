@@ -7,31 +7,16 @@ firebase.initializeApp(firebaseConfig);
 export const auth = firebase.auth();
 export const db = firebase.firestore();
 
-// --- FUNÇÕES DE LOGIN SOCIAL CORRIGIDAS ---
-
-/**
- * Inicia o fluxo de login com o popup do Google.
- * @returns {Promise<firebase.auth.UserCredential>}
- */
+// --- Funções de Login Social ---
 export function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     return auth.signInWithPopup(provider);
 }
-
-/**
- * Inicia o fluxo de login com o popup do Facebook.
- * @returns {Promise<firebase.auth.UserCredential>}
- */
 export function signInWithFacebook() {
     const provider = new firebase.auth.FacebookAuthProvider();
     provider.addScope('email');
     return auth.signInWithPopup(provider);
 }
-
-/**
- * Inicia o fluxo de login com o popup da Apple.
- * @returns {Promise<firebase.auth.UserCredential>}
- */
 export function signInWithApple() {
     const provider = new firebase.auth.OAuthProvider('apple.com');
     provider.addScope('email');
@@ -39,8 +24,75 @@ export function signInWithApple() {
     return auth.signInWithPopup(provider);
 }
 
+// --- Funções de Gamificação ---
 
-// --- DEMAIS FUNÇÕES (sem alteração) ---
+/**
+ * Incrementa a pontuação de engajamento de um usuário.
+ * Usa uma transação para garantir a consistência dos dados.
+ * @param {firebase.User} user - O objeto do usuário autenticado.
+ * @param {('photo'|'guestbook'|'gift')} type - O tipo de interação.
+ * @param {number} points - A quantidade de pontos a ser adicionada.
+ */
+export async function incrementEngagementScore(user, type, points) {
+    if (!user) return;
+    const engagementRef = db.collection('guestEngagement').doc(user.uid);
+
+    return db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(engagementRef);
+        
+        if (!doc.exists) {
+            // Se o usuário não tem registro de engajamento, cria um novo
+            transaction.set(engagementRef, {
+                userId: user.uid,
+                userName: user.displayName,
+                photoURL: user.photoURL,
+                photoCount: type === 'photo' ? 1 : 0,
+                guestbookCount: type === 'guestbook' ? 1 : 0,
+                giftCount: type === 'gift' ? 1 : 0,
+                totalScore: points,
+                badges: [] // Emblemas serão adicionados aqui
+            });
+        } else {
+            // Se já existe, atualiza os contadores e a pontuação
+            const data = doc.data();
+            const newPhotoCount = data.photoCount + (type === 'photo' ? 1 : 0);
+            const newGuestbookCount = data.guestbookCount + (type === 'guestbook' ? 1 : 0);
+            const newGiftCount = data.giftCount + (type === 'gift' ? 1 : 0);
+            const newTotalScore = (data.totalScore || 0) + points;
+
+            transaction.update(engagementRef, {
+                photoCount: newPhotoCount,
+                guestbookCount: newGuestbookCount,
+                giftCount: newGiftCount,
+                totalScore: newTotalScore,
+                // Atualiza o nome e a foto caso o usuário mude no perfil social
+                userName: user.displayName,
+                photoURL: user.photoURL,
+            });
+        }
+    });
+}
+
+/**
+ * Escuta as atualizações do ranking de engajamento em tempo real.
+ * @param {function} onUpdate - Callback que recebe a lista de usuários do ranking.
+ * @returns {function} - Função para cancelar a inscrição (unsubscribe).
+ */
+export function listenToRanking(onUpdate) {
+    return db.collection('guestEngagement')
+        .orderBy('totalScore', 'desc')
+        .limit(20) // Limita aos 20 melhores para performance
+        .onSnapshot(snapshot => {
+            const ranking = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            onUpdate(ranking);
+        }, error => {
+            console.error("Error listening to ranking:", error);
+            onUpdate([]);
+        });
+}
+
+
+// --- Funções do Casamento (Existentes) ---
 
 export async function getWeddingDetails() {
     try {
@@ -49,10 +101,8 @@ export async function getWeddingDetails() {
         if (docSnap.exists) {
             const data = docSnap.data();
             return { ...data, weddingDate: data.weddingDate.toDate(), rsvpDate: data.rsvpDate.toDate() };
-        } else {
-            console.log("No wedding details found in DB!");
-            return null;
         }
+        return null;
     } catch (error) {
         console.error("Error fetching wedding details:", error);
         return null;
@@ -62,9 +112,7 @@ export async function getWeddingDetails() {
 export async function validateAccessKey(key) {
     const docRef = db.collection('accessKeys').doc(key);
     const docSnap = await docRef.get();
-    if (!docSnap.exists) {
-        return { isValid: false, isUsed: false, docId: null, data: null };
-    }
+    if (!docSnap.exists) return { isValid: false, isUsed: false, docId: null, data: null };
     const docData = docSnap.data();
     return { isValid: true, isUsed: docData.isUsed, docId: docSnap.id, data: docData };
 }
@@ -87,28 +135,20 @@ export function loginUser(email, password) {
 
 export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
     let userCredential;
-    
     if (socialProvider && user) {
         userCredential = { user };
-        if (!user.displayName || user.displayName !== name) {
-            await user.updateProfile({ displayName: name });
-        }
+        if (!user.displayName || user.displayName !== name) await user.updateProfile({ displayName: name });
     } else {
         userCredential = await auth.createUserWithEmailAndPassword(email, password);
         await userCredential.user.updateProfile({ displayName: name });
     }
-    
     const keyRef = db.collection('accessKeys').doc(keyDocId);
-    
     const guestNamesCollectionRef = keyRef.collection('guestNames');
     const batch = db.batch();
     guestNames.forEach(guestName => {
-        if (guestName.trim() !== '') {
-            batch.set(guestNamesCollectionRef.doc(), { name: guestName });
-        }
+        if (guestName.trim() !== '') batch.set(guestNamesCollectionRef.doc(), { name: guestName });
     });
     await batch.commit();
-
     await keyRef.update({
         isUsed: true,
         usedByEmail: userCredential.user.email,
@@ -121,21 +161,16 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
 export async function updateRsvpDetails(keyId, newData) {
     const keyRef = db.collection('accessKeys').doc(keyId);
     const guestNamesRef = keyRef.collection('guestNames');
-
     const oldNamesSnapshot = await guestNamesRef.get();
     const deleteBatch = db.batch();
     oldNamesSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
     await deleteBatch.commit();
-
     const addBatch = db.batch();
     newData.guestNames.forEach(name => {
         if (name.trim()) addBatch.set(guestNamesRef.doc(), { name });
     });
     await addBatch.commit();
-
-    return keyRef.update({
-        willAttendRestaurant: newData.willAttendRestaurant
-    });
+    return keyRef.update({ willAttendRestaurant: newData.willAttendRestaurant });
 }
 
 export async function getGuestNames(keyId) {
@@ -202,16 +237,19 @@ export function listenToGiftList(onGiftsUpdate) {
     );
 }
 
+// ATUALIZADO: Salva o ID do usuário que deu o presente
 export function markGiftAsTaken(giftId, user) {
     return db.collection('giftList').doc(giftId).update({
         isTaken: true,
-        takenBy: user.displayName
+        takenBy: user.displayName,
+        takenById: user.uid // Novo campo para rastrear o ID
     });
 }
 
 export function unmarkGiftAsTaken(giftId) {
     return db.collection('giftList').doc(giftId).update({
         isTaken: false,
-        takenBy: null
+        takenBy: null,
+        takenById: null
     });
 }
