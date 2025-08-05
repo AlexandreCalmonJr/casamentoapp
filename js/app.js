@@ -12,7 +12,7 @@ const appState = {
     galleryUnsubscribe: null,
     guestbookUnsubscribe: null,
     giftListUnsubscribe: null,
-    rankingUnsubscribe: null, // Novo listener
+    rankingUnsubscribe: null,
     weddingDetails: null
 };
 
@@ -29,7 +29,7 @@ function cleanupListeners() {
     if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
     if (appState.guestbookUnsubscribe) appState.guestbookUnsubscribe();
     if (appState.giftListUnsubscribe) appState.giftListUnsubscribe();
-    if (appState.rankingUnsubscribe) appState.rankingUnsubscribe(); // Limpa o novo listener
+    if (appState.rankingUnsubscribe) appState.rankingUnsubscribe();
     if (appState.countdownInterval) clearInterval(appState.countdownInterval);
     appState.galleryUnsubscribe = null;
     appState.guestbookUnsubscribe = null;
@@ -172,7 +172,6 @@ async function handlePhotoUploadClick() {
     UI.setButtonLoading(uploadBtn, true);
     try {
         await Firebase.uploadPhoto(file, appState.currentUser, (progress) => { progressBar.style.width = `${progress}%`; });
-        // ATUALIZADO: Adiciona pontos de engajamento
         await Firebase.incrementEngagementScore(appState.currentUser, 'photo', 10);
         fileInput.value = '';
         UI.showToast('Foto enviada com sucesso! +10 pontos!', 'success');
@@ -193,7 +192,6 @@ async function handleGuestbookSubmit(event) {
     UI.setButtonLoading(button, true);
     try {
         await Firebase.postGuestbookMessage(appState.currentUser, message);
-        // ATUALIZADO: Adiciona pontos de engajamento
         await Firebase.incrementEngagementScore(appState.currentUser, 'guestbook', 15);
         messageInput.value = '';
         UI.showToast('Sua mensagem foi enviada! +15 pontos!', 'success');
@@ -261,7 +259,6 @@ function setupViewSpecificListeners() {
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
 
-    // NOVO: Listener para a página de Atividades/Ranking
     if (appState.currentView === 'activities' && appState.currentUser) {
         appState.rankingUnsubscribe = Firebase.listenToRanking((rankingData) => {
             UI.renderRanking(rankingData, appState.currentUser.uid);
@@ -276,7 +273,6 @@ function setupViewSpecificListeners() {
                 UI.setButtonLoading(button, true);
                 try {
                     await Firebase.unmarkGiftAsTaken(button.dataset.id);
-                    // ATUALIZADO: Remove pontos ao desfazer
                     await Firebase.incrementEngagementScore(appState.currentUser, 'gift', -25);
                     UI.showToast('Escolha desfeita.', 'success');
                 } catch (err) {
@@ -315,9 +311,27 @@ function renderCurrentView() {
     setupViewSpecificListeners();
 }
 
+// ATUALIZADO: Esta função agora também controla a barra de navegação
 async function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
+    const activitiesButton = document.getElementById('activities-nav-button');
+    const rsvpNavText = document.getElementById('rsvp-nav-text');
+
+    // Controla a visibilidade dos botões da barra de navegação
+    if (activitiesButton) {
+        if (user) {
+            activitiesButton.classList.remove('hidden');
+        } else {
+            activitiesButton.classList.add('hidden');
+        }
+    }
+    if (rsvpNavText) {
+        rsvpNavText.textContent = user ? 'Portal' : 'Acesso';
+    }
+
     if (!container) return;
+
+    // Lógica para a área do usuário no cabeçalho (header)
     if (user && !appState.accessKeyInfo) {
         const keyInfo = await Firebase.findAccessKeyForUser(user.email);
         if (keyInfo) appState.accessKeyInfo = keyInfo;
@@ -367,15 +381,12 @@ function setupModalListeners() {
             UI.setButtonLoading(confirmButton, true);
             try {
                 await Firebase.markGiftAsTaken(giftId, appState.currentUser);
-                // ATUALIZADO: Adiciona pontos de engajamento
                 await Firebase.incrementEngagementScore(appState.currentUser, 'gift', 25);
                 UI.togglePixModal(false);
                 UI.showToast('Obrigado pelo seu presente! +25 pontos!', 'success');
             } catch (err) {
                 console.error("Erro ao marcar presente:", err);
                 UI.showToast("Ocorreu um erro ao confirmar o seu presente.", 'error');
-            } finally {
-                // O botão é destruído com o modal, então não precisa resetar o loading
             }
         }
     });
@@ -404,13 +415,12 @@ async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
-        // ATUALIZADO: Adiciona a nova view 'activities'
-        const validViews = ['home', 'details', 'activities', 'guestbook', 'gifts', 'rsvp'];
+        const validViews = ['home', 'details', 'guest-photos', 'activities', 'guestbook', 'gifts', 'rsvp'];
         appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
         Firebase.auth.onAuthStateChanged(async (user) => {
             appState.currentUser = user;
-            await updateUserArea(user);
+            await updateUserArea(user); // Esta função agora controla o header e a nav
             if (keyFromUrl && !user) {
                 const { isValid, isUsed, data } = await handleAccessKeyValidation(keyFromUrl);
                 if (isValid && !isUsed) {
