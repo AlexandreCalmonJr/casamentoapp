@@ -1,3 +1,37 @@
+// Variável global para a instância do Notyf
+let notyf;
+
+/**
+ * Inicializa a biblioteca de notificações.
+ */
+export function initToast() {
+    if (window.Notyf) {
+        notyf = new Notyf({
+            duration: 4000,
+            position: { x: 'right', y: 'top' },
+            types: [
+                { type: 'success', backgroundColor: '#28a745', icon: { className: 'fas fa-check-circle', tagName: 'i' } },
+                { type: 'error', backgroundColor: '#dc3545', icon: { className: 'fas fa-times-circle', tagName: 'i' } },
+                { type: 'info', backgroundColor: '#17a2b8', icon: { className: 'fas fa-info-circle', tagName: 'i' } }
+            ]
+        });
+    }
+}
+
+/**
+ * Mostra uma notificação toast.
+ * @param {string} message - A mensagem a ser exibida.
+ * @param {('success'|'error'|'info')} type - O tipo de notificação.
+ */
+export function showToast(message, type = 'success') {
+    if (notyf) {
+        notyf.open({ type, message });
+    } else {
+        alert(message);
+    }
+}
+
+
 /**
  * Otimiza uma URL do Cloudinary para uma thumbnail.
  * @param {string} url - A URL original.
@@ -37,9 +71,10 @@ export function setButtonLoading(button, isLoading) {
  * @param {string} viewName - O nome da view ('home', 'details', etc.).
  * @param {firebase.User|null} user - O usuário autenticado.
  * @param {Object} weddingDetails - Os detalhes do casamento vindos do Firestore.
+ * @param {Object|null} accessKeyInfo - Informações da chave de acesso do usuário.
  * @returns {string} - O HTML da view.
  */
-export function generateViewHTML(viewName, user, weddingDetails) {
+export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) {
     if (!weddingDetails) {
         return `<div class="text-center p-8">
             <div class="animate-pulse">
@@ -108,7 +143,6 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                                 <button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button>
                             </div>
                             <div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div>
-                            <p id="upload-error" class="text-red-500 text-sm mt-2 hidden"></p>
                         </div>
                         <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
                             <h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2>
@@ -138,7 +172,6 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                             <form id="guestbook-form" class="space-y-4">
                                 <textarea id="guestbook-message" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600" rows="4" placeholder="Escreva sua mensagem aqui..." required></textarea>
                                 <button type="submit" class="w-full py-2 bg-primary text-white rounded">Enviar Mensagem</button>
-                                <p id="guestbook-error" class="text-red-500 text-sm hidden"></p>
                             </form>
                         ` : `
                             <div class="text-center">
@@ -172,8 +205,11 @@ export function generateViewHTML(viewName, user, weddingDetails) {
                 <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 max-w-lg mx-auto text-center">
                     ${user ? `
                         <i class="fas fa-check-circle text-green-500 text-4xl mb-4"></i>
-                        <h2 class="text-xl font-medium mb-2">Você já está logado!</h2>
-                        <p class="text-gray-600 dark:text-gray-400">Olá, ${user.displayName}. Você já pode interagir com o site.</p>
+                        <h2 class="text-xl font-medium mb-2">Olá, ${user.displayName}!</h2>
+                        <p class="text-gray-600 dark:text-gray-400 mb-6">Sua presença está confirmada. Obrigado!</p>
+                        <button id="manage-rsvp-button" class="w-full py-3 px-4 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-lg">
+                            <i class="fas fa-edit mr-2"></i>Gerenciar minha confirmação
+                        </button>
                     ` : `
                         <i class="fas fa-key text-3xl text-gray-400 mb-4"></i>
                         <h2 class="text-xl font-medium mb-2">Área Exclusiva</h2>
@@ -189,8 +225,8 @@ export function generateViewHTML(viewName, user, weddingDetails) {
     }
 }
 
-export function renderView(viewName, user, weddingDetails) {
-    document.getElementById('main-content').innerHTML = generateViewHTML(viewName, user, weddingDetails);
+export function renderView(viewName, user, weddingDetails, accessKeyInfo) {
+    document.getElementById('main-content').innerHTML = generateViewHTML(viewName, user, weddingDetails, accessKeyInfo);
     updateNavButtons(viewName);
 }
 
@@ -204,12 +240,7 @@ function updateNavButtons(activeView) {
     });
 }
 
-/**
- * CORREÇÃO: A variável do intervalo agora é armazenada e limpa corretamente.
- * Inicia ou atualiza a contagem regressiva.
- * @param {Date} weddingDate - A data do casamento.
- * @returns {number|null} O ID do intervalo, ou nulo se a data for inválida.
- */
+
 export function updateCountdown(weddingDate) {
     const countdownEl = document.getElementById('countdown');
     if (!countdownEl) return null;
@@ -220,13 +251,13 @@ export function updateCountdown(weddingDate) {
     }
 
     const targetTime = weddingDate.getTime();
-    let intervalId = null; // Variável para guardar o ID do intervalo
+    let intervalId = null; 
 
     const update = () => {
         const distance = targetTime - new Date().getTime();
         if (distance < 0) {
             countdownEl.innerHTML = `<div class="text-xl font-serif text-primary dark:text-dark-primary">O grande dia chegou! 🎉</div>`;
-            if (intervalId) clearInterval(intervalId); // Limpa o intervalo quando o tempo acaba
+            if (intervalId) clearInterval(intervalId); 
             return;
         }
         
@@ -243,8 +274,8 @@ export function updateCountdown(weddingDate) {
         `;
     };
 
-    update(); // Primeira execução imediata
-    intervalId = setInterval(update, 1000); // Inicia o intervalo e guarda o ID
+    update();
+    intervalId = setInterval(update, 1000);
     return intervalId;
 }
 
@@ -293,7 +324,7 @@ export function renderGuestbookMessages(messages) {
     }
 }
 
-export function renderGiftList(gifts, currentUser, weddingDetails) {
+export function renderGiftList(gifts, currentUser) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
 
@@ -319,13 +350,14 @@ export function renderGiftList(gifts, currentUser, weddingDetails) {
                 <div class="mt-4">
                     ${isTaken 
                         ? (isTakenByMe 
-                            ? `<button data-id="${gift.id}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>`
+                            ? `<button data-id="${gift.id}" aria-label="Desfazer escolha do presente ${gift.name}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>`
                             : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`
                           )
                         : `<button 
                                 data-id="${gift.id}"
                                 data-name="${gift.name}"
                                 data-price="${gift.price}"
+                                aria-label="Presentear com ${gift.name} via PIX"
                                 class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90">
                                 <i class="fas fa-qrcode mr-2"></i>Presentear com PIX
                            </button>`
@@ -344,8 +376,8 @@ function addFormValidation() {
     });
 }
 
-function generateGuestNameInputs(count) {
-    const container = document.getElementById('guest-names-container');
+function generateGuestNameInputs(containerId, count, existingNames = []) {
+    const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = `<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Por favor, confirme os nomes dos convidados:</label>`;
     for (let i = 0; i < count; i++) {
@@ -353,6 +385,7 @@ function generateGuestNameInputs(count) {
         input.type = 'text';
         input.className = 'guest-name-input w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600';
         input.placeholder = `Nome do Convidado ${i + 1}`;
+        input.value = existingNames[i] || '';
         input.required = true;
         container.appendChild(input);
     }
@@ -360,24 +393,12 @@ function generateGuestNameInputs(count) {
 
 export function renderAuthForm(type, accessKey = '', keyData = null) {
     const authFormContainer = document.getElementById('auth-form-container');
-    const authModal = document.getElementById('auth-modal');
-    if (!authFormContainer || !authModal) return;
+    if (!authFormContainer) return;
     
-    authFormContainer.innerHTML = type === 'login' ? `
-        <h2 class="text-2xl font-serif mb-4 text-center">Login</h2>
-        <form id="login-form" class="space-y-4" novalidate>
-            <div><label class="block text-sm">Email</label><input type="email" id="login-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
-            <div><label class="block text-sm">Senha</label><input type="password" id="login-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
-            <p id="auth-error" class="text-red-500 text-sm hidden"></p>
-            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Entrar</button>
-            <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se</button></p>
-        </form>
-        
-        <!-- SEÇÃO DE LOGIN SOCIAL -->
+    const socialLoginButtons = `
         <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b">
-            <p class="text-center text-xs mx-4 text-gray-500">OU ENTRE COM</p>
+            <p class="text-center text-xs mx-4 text-gray-500">OU</p>
         </div>
-        
         <div class="space-y-3">
             <button id="google-login-modal-button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center transition-colors">
                 <i class="fab fa-google mr-2"></i>Entrar com Google
@@ -389,12 +410,11 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
                 <i class="fab fa-apple mr-2"></i>Entrar com Apple
             </button>
         </div>
-    ` : `
-        <h2 class="text-2xl font-serif mb-4 text-center">Cadastro de Convidado</h2>
-        
-        <!-- OPÇÃO DE CADASTRO COM REDES SOCIAIS -->
+    `;
+
+    const socialSignupButtons = `
         <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">Cadastro Rápido</h3>
+            <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">Cadastro Rápido (Requer Chave)</h3>
             <div class="space-y-2">
                 <button id="google-signup-button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center transition-colors">
                     <i class="fab fa-google mr-2"></i>Cadastrar com Google
@@ -407,11 +427,23 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
                 </button>
             </div>
         </div>
-        
-        <div class="mb-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b">
-            <p class="text-center text-xs mx-4 text-gray-500">OU CADASTRE-SE COM EMAIL</p>
+        <div class="my-4 flex items-center before:flex-1 before:border-b after:flex-1 after:border-b">
+            <p class="text-center text-xs mx-4 text-gray-500">OU COM EMAIL</p>
         </div>
-        
+    `;
+
+    authFormContainer.innerHTML = type === 'login' ? `
+        <h2 class="text-2xl font-serif mb-4 text-center">Login</h2>
+        <form id="login-form" class="space-y-4" novalidate>
+            <div><label class="block text-sm">Email</label><input type="email" id="login-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
+            <div><label class="block text-sm">Senha</label><input type="password" id="login-password" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
+            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Entrar</button>
+            <p class="text-sm text-center">Não tem conta? <button type="button" id="show-signup" class="text-primary font-semibold">Cadastre-se</button></p>
+        </form>
+        ${socialLoginButtons}
+    ` : `
+        <h2 class="text-2xl font-serif mb-4 text-center">Cadastro de Convidado</h2>
+        ${socialSignupButtons}
         <form id="signup-form" class="space-y-4" novalidate>
             <div><label class="block text-sm">Chave de Acesso</label><input type="text" id="signup-key" value="${accessKey}" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required ${accessKey ? 'readonly' : ''}></div>
             <div id="guest-names-container"></div>
@@ -424,16 +456,15 @@ export function renderAuthForm(type, accessKey = '', keyData = null) {
             </div>
             <div><label class="block text-sm">Seu Email</label><input type="email" id="signup-email" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
             <div><label class="block text-sm">Crie uma Senha (mín. 6 caracteres)</label><input type="password" id="signup-password" minlength="6" class="w-full mt-1 p-2 rounded border dark:bg-gray-800 dark:border-gray-600" required></div>
-            <p id="auth-error" class="text-red-500 text-sm hidden"></p>
-            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Confirmar e Cadastrar</button>
+            <button type="submit" class="w-full py-2 bg-primary text-white rounded">Confirmar e Cadastrar com Email</button>
             <p class="text-sm text-center">Já tem conta? <button type="button" id="show-login" class="text-primary font-semibold">Faça login</button></p>
         </form>
     `;
     
-    authModal.classList.remove('hidden');
+    toggleAuthModal(true);
 
     if (type === 'signup' && keyData) {
-        generateGuestNameInputs(keyData.allowedGuests);
+        generateGuestNameInputs('guest-names-container', keyData.allowedGuests);
     }
     addFormValidation();
 }
@@ -442,26 +473,13 @@ export function toggleAuthModal(show) {
     document.getElementById('auth-modal').classList.toggle('hidden', !show);
 }
 
-/**
- * Gera o QR Code no placeholder
- * @param {string} pixCode - O código PIX gerado
- */
 function generateQRCode(pixCode) {
     const placeholder = document.getElementById('qr-placeholder');
     if (!placeholder) return;
-
-    placeholder.innerHTML = ''; // Limpar o placeholder
-
+    placeholder.innerHTML = ''; 
     if (window.QRCode) {
         try {
-            new window.QRCode(placeholder, {
-                text: pixCode,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: window.QRCode.CorrectLevel.M
-            });
+            new window.QRCode(placeholder, { text: pixCode, width: 200, height: 200, colorDark: "#000000", colorLight: "#ffffff", correctLevel: window.QRCode.CorrectLevel.M });
         } catch (error) {
             console.error("Erro ao gerar QR Code:", error);
             showQRCodeFallback(placeholder);
@@ -472,272 +490,73 @@ function generateQRCode(pixCode) {
     }
 }
 
-/**
- * CORREÇÃO: Removido o `alert()` e melhorado o feedback de erro.
- * Configura o botão de copiar código PIX.
- */
-function setupCopyButton() {
-    const copyButton = document.getElementById('copy-pix-button');
-    const pixInput = document.getElementById('pix-copy-paste');
-    
-    if (copyButton && pixInput) {
-        copyButton.addEventListener('click', async () => {
-            const originalIcon = copyButton.innerHTML;
-            try {
-                await navigator.clipboard.writeText(pixInput.value);
-                
-                // Feedback visual de sucesso
-                copyButton.innerHTML = '<i class="fas fa-check text-green-600"></i>';
-                copyButton.classList.add('bg-green-200', 'dark:bg-green-800');
-                
-                setTimeout(() => {
-                    copyButton.innerHTML = originalIcon;
-                    copyButton.classList.remove('bg-green-200', 'dark:bg-green-800');
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Erro ao copiar:', error);
-                
-                // Feedback visual de erro, sem usar alert()
-                copyButton.innerHTML = '<i class="fas fa-times text-red-600"></i>';
-                copyButton.classList.add('bg-red-200', 'dark:bg-red-800');
-
-                // Tenta o método antigo como fallback
-                try {
-                    pixInput.select();
-                    document.execCommand('copy');
-                } catch (fallbackError) {
-                    console.error('Erro no fallback de cópia:', fallbackError);
-                }
-
-                setTimeout(() => {
-                    copyButton.innerHTML = originalIcon;
-                    copyButton.classList.remove('bg-red-200', 'dark:bg-red-800');
-                }, 2000);
-            }
-        });
-    }
-}
-
-
-/**
- * Mostra um fallback quando o QR Code não pode ser gerado
- * @param {HTMLElement} placeholder - O elemento onde mostrar o fallback
- */
 function showQRCodeFallback(placeholder) {
-    placeholder.innerHTML = `
-        <div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-8 text-center">
-            <i class="fas fa-qrcode text-4xl text-gray-500 mb-2"></i>
-            <p class="text-sm text-gray-600 dark:text-gray-400">QR Code indisponível</p>
-            <p class="text-xs text-gray-500 mt-1">Use o código PIX abaixo</p>
-        </div>
-    `;
+    placeholder.innerHTML = `<div class="bg-gray-200 dark:bg-gray-700 rounded-lg p-8 text-center"><i class="fas fa-qrcode text-4xl text-gray-500 mb-2"></i><p class="text-sm text-gray-600 dark:text-gray-400">QR Code indisponível</p><p class="text-xs text-gray-500 mt-1">Use o código PIX abaixo</p></div>`;
 }
 
-/**
- * Renderiza o modal de pagamento PIX.
- * @param {object} gift - O objeto do presente { id, name, price }.
- * @param {object} weddingDetails - Detalhes do casamento, incluindo a chave PIX.
- */
 export function renderPixModal(gift, weddingDetails) {
     const pixContainer = document.getElementById('pix-content-container');
     if (!pixContainer || !weddingDetails.pixKey) {
-        // CORREÇÃO: Evita `alert` e mostra o erro de forma mais elegante.
         showToast('A chave PIX dos noivos não foi configurada.', 'error');
         return;
     }
-
     pixContainer.innerHTML = `<div class="flex justify-center items-center p-10"><i class="fas fa-spinner fa-spin text-3xl text-primary"></i></div>`;
     togglePixModal(true);
-
     try {
-        // Gerar o código PIX
-        const pixCode = generatePixCode(
-            weddingDetails.pixKey,
-            weddingDetails.coupleNames,
-            'SALVADOR', // Cidade do recebedor
-            parseFloat(gift.price),
-            `GIFT-${gift.id}` // ID da transação
-        );
-
-        // Renderizar o conteúdo do modal
-        pixContainer.innerHTML = `
-            <div class="text-center">
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2>
-                <p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p>
-                
-                <div id="qr-placeholder" class="flex justify-center p-4 bg-white rounded-lg mx-auto mb-4 w-fit"></div>
-                
-                <p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p>
-                
-                <div class="mt-6">
-                    <p class="text-sm font-medium mb-2">1. Abra a app do seu banco e aponte a câmara para o QR Code.</p>
-                    <p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p>
-                    <div class="flex items-center">
-                        <input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md">
-                        <button id="copy-pix-button" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button>
-                    </div>
-                </div>
-                
-                <div class="mt-8 border-t dark:border-gray-700 pt-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente.</p>
-                    <button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700">
-                        <i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!
-                    </button>
-                </div>
-            </div>`;
-
-        // Aguardar um momento para o DOM ser atualizado e então gerar o QR Code
-        setTimeout(() => {
-            generateQRCode(pixCode);
-            setupCopyButton();
-        }, 100);
-
+        const pixCode = generatePixCode(weddingDetails.pixKey, weddingDetails.coupleNames, 'SALVADOR', parseFloat(gift.price), `GIFT-${gift.id}`);
+        pixContainer.innerHTML = `<div class="text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2><p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p><div id="qr-placeholder" class="flex justify-center p-4 bg-white rounded-lg mx-auto mb-4 w-fit"></div><p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p><div class="mt-6"><p class="text-sm font-medium mb-2">1. Abra a app do seu banco e aponte a câmara para o QR Code.</p><p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p><div class="flex items-center"><input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md"><button id="copy-pix-button" aria-label="Copiar código PIX" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button></div></div><div class="mt-8 border-t dark:border-gray-700 pt-4"><p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente.</p><button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"><i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!</button></div></div>`;
+        setTimeout(() => { generateQRCode(pixCode); }, 100);
     } catch (error) {
         console.error("Erro ao gerar PIX:", error);
-        pixContainer.innerHTML = `
-            <div class="text-center p-8">
-                <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
-                <p class="text-red-500 font-medium">Ocorreu um erro ao gerar o código PIX.</p>
-                <p class="text-gray-600 dark:text-gray-400 text-sm mt-2">Por favor, tente novamente.</p>
-            </div>`;
+        pixContainer.innerHTML = `<div class="text-center p-8"><i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i><p class="text-red-500 font-medium">Ocorreu um erro ao gerar o código PIX.</p><p class="text-gray-600 dark:text-gray-400 text-sm mt-2">Por favor, tente novamente.</p></div>`;
     }
 }
 
-
-/**
- * CORREÇÃO: Simplificada para maior compatibilidade. Removido o campo de mensagem não padrão.
- * Gera uma string de PIX Copia e Cola (BR Code)
- * @param {string} pixKey - A chave PIX (CPF, CNPJ, email, telefone ou chave aleatória).
- * @param {string} name - Nome do recebedor (até 25 caracteres).
- * @param {string} city - Cidade do recebedor (até 15 caracteres).
- * @param {number} value - O valor da transação.
- * @param {string} transactionId - Um ID único para a transação (até 25 caracteres).
- * @returns {string} O código PIX completo.
- */
 function generatePixCode(pixKey, name, city, value, transactionId) {
-    // Função para calcular o CRC16 (validação do código PIX)
-    function crc16(data) {
-        let crc = 0xFFFF;
-        for (let i = 0; i < data.length; i++) {
-            crc ^= data.charCodeAt(i) << 8;
-            for (let j = 0; j < 8; j++) {
-                if (crc & 0x8000) { 
-                    crc = (crc << 1) ^ 0x1021; 
-                } else { 
-                    crc <<= 1; 
-                }
-                crc &= 0xFFFF;
-            }
-        }
-        return crc.toString(16).toUpperCase().padStart(4, '0');
-    }
-
-    // Função para formatar um campo no padrão Tag-Length-Value (TLV)
-    function formatField(id, value) {
-        const length = value.length.toString().padStart(2, '0');
-        return id + length + value;
-    }
-
-    // Normaliza e trunca os dados para garantir que se encaixem nos limites do PIX
-    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
-    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
-    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
-
-    let pixString = '';
-    pixString += formatField('00', '01'); // Payload Format Indicator
-    
-    // Merchant Account Information (Informações da Conta)
-    let merchantInfo = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', pixKey);
-    pixString += formatField('26', merchantInfo);
-    
-    pixString += formatField('52', '0000'); // Merchant Category Code (sempre 0000)
-    pixString += formatField('53', '986');  // Transaction Currency (BRL - Real Brasileiro)
-    
-    // Transaction Amount (Valor)
-    if (value && value > 0) { 
-        pixString += formatField('54', value.toFixed(2)); 
-    }
-    
-    pixString += formatField('58', 'BR'); // Country Code (Brasil)
-    pixString += formatField('59', sanitizedName); // Merchant Name (Nome do Recebedor)
-    pixString += formatField('60', sanitizedCity); // Merchant City (Cidade do Recebedor)
-    
-    // Additional Data Field (Campo de Dados Adicionais com o ID da Transação)
-    let additionalData = formatField('05', sanitizedTxId);
-    pixString += formatField('62', additionalData);
-    
-    // CRC16 (Checksum de Validação)
-    pixString += '6304';
-    const crc = crc16(pixString);
-    pixString += crc;
-    
-    return pixString;
+    function crc16(data){let crc=0xFFFF;for(let i=0;i<data.length;i++){crc^=data.charCodeAt(i)<<8;for(let j=0;j<8;j++){crc=(crc&0x8000)?(crc<<1)^0x1021:crc<<1;crc&=0xFFFF;}}return crc.toString(16).toUpperCase().padStart(4,'0');}
+    function formatField(id,value){const length=value.length.toString().padStart(2,'0');return id+length+value;}
+    const sanitizedName=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").substring(0,25);
+    const sanitizedCity=city.normalize("NFD").replace(/[\u0300-\u036f]/g,"").substring(0,15);
+    const sanitizedTxId=(transactionId||'***').replace(/\s/g,'').substring(0,25);
+    let pixString='';pixString+=formatField('00','01');let merchantInfo=formatField('00','BR.GOV.BCB.PIX')+formatField('01',pixKey);pixString+=formatField('26',merchantInfo);pixString+=formatField('52','0000');pixString+=formatField('53','986');if(value&&value>0){pixString+=formatField('54',value.toFixed(2));}
+    pixString+=formatField('58','BR');pixString+=formatField('59',sanitizedName);pixString+=formatField('60',sanitizedCity);let additionalData=formatField('05',sanitizedTxId);pixString+=formatField('62',additionalData);pixString+='6304';const crc=crc16(pixString);pixString+=crc;return pixString;
 }
-
 
 export function togglePixModal(show) {
-    const pixModal = document.getElementById('pix-modal');
-    pixModal.classList.toggle('hidden', !show);
+    document.getElementById('pix-modal').classList.toggle('hidden', !show);
 }
 
-/**
- * MELHORIA: Usa delegação de eventos para gerenciar os cliques nos botões de presente.
- * Isso é mais eficiente do que adicionar um listener para cada botão individualmente.
- * @param {object} weddingDetails - Os detalhes do casamento.
- */
 export function initializeGiftEventListeners(weddingDetails) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
-
     container.addEventListener('click', (e) => {
         const pixButton = e.target.closest('.present-with-pix-btn');
         if (pixButton) {
-            const gift = {
-                id: pixButton.dataset.id,
-                name: pixButton.dataset.name,
-                price: parseFloat(pixButton.dataset.price)
-            };
+            const gift = { id: pixButton.dataset.id, name: pixButton.dataset.name, price: parseFloat(pixButton.dataset.price) };
             renderPixModal(gift, weddingDetails);
         }
     });
 }
 
+export function renderRsvpManagementModal(keyData, existingNames, submitHandler) {
+    const container = document.getElementById('rsvp-form-container');
+    if (!container) return;
+    container.innerHTML = `<h2 class="text-2xl font-serif mb-4 text-center">Gerenciar Confirmação</h2><form id="rsvp-update-form" class="space-y-4" novalidate><div id="guest-names-update-container"></div><div class="border-t pt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante?</label><div class="flex space-x-4 mt-2"><label class="inline-flex items-center"><input type="radio" name="attend-restaurant-update" value="yes" class="text-primary" ${keyData.willAttendRestaurant ? 'checked' : ''}><span class="ml-2">Sim, irei!</span></label><label class="inline-flex items-center"><input type="radio" name="attend-restaurant-update" value="no" class="text-primary" ${!keyData.willAttendRestaurant ? 'checked' : ''}><span class="ml-2">Apenas cerimônia</span></label></div></div><button type="submit" class="w-full py-2 bg-primary text-white rounded">Salvar Alterações</button></form>`;
+    generateGuestNameInputs('guest-names-update-container', keyData.allowedGuests, existingNames);
+    const form = document.getElementById('rsvp-update-form');
+    form.addEventListener('submit', submitHandler);
+    toggleRsvpModal(true);
+}
+
+export function toggleRsvpModal(show) {
+    document.getElementById('rsvp-modal').classList.toggle('hidden', !show);
+}
+
 export function showSocialSignupModal(keyData, onComplete) {
-    const modalHTML = `
-        <div id="social-signup-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-                <h3 class="text-lg font-semibold mb-4">Complete seu cadastro</h3>
-                <form id="social-signup-form" class="space-y-4">
-                    <div id="social-guest-names-container"></div>
-                    <div class="border-t pt-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante?</label>
-                        <div class="flex space-x-4 mt-2">
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="social-attend-restaurant" value="yes" class="text-primary" checked>
-                                <span class="ml-2">Sim, irei!</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="social-attend-restaurant" value="no" class="text-primary">
-                                <span class="ml-2">Apenas cerimônia</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="flex space-x-3 pt-4">
-                        <button type="button" id="cancel-social-signup" class="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded">Cancelar</button>
-                        <button type="submit" class="flex-1 py-2 px-4 bg-primary text-white rounded">Confirmar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
+    const modalHTML = `<div id="social-signup-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4"><h3 class="text-lg font-semibold mb-4">Complete seu cadastro</h3><form id="social-signup-form" class="space-y-4"><div id="social-guest-names-container"></div><div class="border-t pt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Você irá conosco ao restaurante?</label><div class="flex space-x-4 mt-2"><label class="inline-flex items-center"><input type="radio" name="social-attend-restaurant" value="yes" class="text-primary" checked><span class="ml-2">Sim, irei!</span></label><label class="inline-flex items-center"><input type="radio" name="social-attend-restaurant" value="no" class="text-primary"><span class="ml-2">Apenas cerimônia</span></label></div></div><div class="flex space-x-3 pt-4"><button type="button" id="cancel-social-signup" class="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded">Cancelar</button><button type="submit" class="flex-1 py-2 px-4 bg-primary text-white rounded">Confirmar</button></div></form></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Gera inputs para nomes dos convidados
     const container = document.getElementById('social-guest-names-container');
     container.innerHTML = `<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirme os nomes dos convidados:</label>`;
-    
     for (let i = 0; i < keyData.allowedGuests; i++) {
         const input = document.createElement('input');
         input.type = 'text';
@@ -746,26 +565,17 @@ export function showSocialSignupModal(keyData, onComplete) {
         input.required = true;
         container.appendChild(input);
     }
-    
-    // Event listeners
     document.getElementById('cancel-social-signup').addEventListener('click', () => {
         document.getElementById('social-signup-modal').remove();
     });
-    
     document.getElementById('social-signup-form').addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        const guestNames = Array.from(document.querySelectorAll('.social-guest-name-input'))
-            .map(input => input.value.trim())
-            .filter(name => name);
-            
+        const guestNames = Array.from(document.querySelectorAll('.social-guest-name-input')).map(input => input.value.trim()).filter(name => name);
         const willAttendRestaurant = document.querySelector('input[name="social-attend-restaurant"]:checked')?.value === 'yes';
-        
         if (guestNames.length === 0) {
-            alert('Pelo menos um nome de convidado é obrigatório.');
+            showToast('Pelo menos um nome de convidado é obrigatório.', 'error');
             return;
         }
-        
         document.getElementById('social-signup-modal').remove();
         onComplete({ guestNames, willAttendRestaurant });
     });
