@@ -84,15 +84,31 @@
         </header>
         <main class="flex-1 overflow-auto custom-scrollbar"><div id="main-content" class="max-w-screen-lg mx-auto px-4 py-6 pb-24"></div></main>
         <nav class="fixed bottom-0 left-0 right-0 bg-light-card dark:bg-dark-card border-t border-gray-200 dark:border-gray-800 shadow-lg">
-            <!-- CORREÇÃO: Botão "Fotos" adicionado de volta -->
+            <!-- CORREÇÃO: Layout da barra de navegação otimizado para mobile -->
             <div class="flex justify-around max-w-screen-lg mx-auto">
-                <button data-view="home" aria-label="Ir para Início" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-home text-xl"></i><span class="block text-xs mt-1">Início</span></button>
-                <button data-view="details" aria-label="Ver Detalhes" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-info-circle text-xl"></i><span class="block text-xs mt-1">Detalhes</span></button>
-                <button data-view="guest-photos" aria-label="Ver Fotos" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-camera-retro text-xl"></i><span class="block text-xs mt-1">Fotos</span></button>
-                <button data-view="activities" aria-label="Ver Atividades" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-star text-xl"></i><span class="block text-xs mt-1">Atividades</span></button>
-                <button data-view="guestbook" aria-label="Ver Mural de Recados" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-book-open text-xl"></i><span class="block text-xs mt-1">Recados</span></button>
-                <button data-view="gifts" aria-label="Ver Lista de Presentes" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-gift text-xl"></i><span class="block text-xs mt-1">Presentes</span></button>
-                <button data-view="rsvp" aria-label="Acessar área do convidado" class="nav-button flex-1 py-3 px-2 text-center"><i class="fas fa-envelope text-xl"></i><span class="block text-xs mt-1">Acesso</span></button>
+                <button data-view="home" aria-label="Ir para Início" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-home text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Início</span>
+                </button>
+                <button data-view="details" aria-label="Ver Detalhes" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-info-circle text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Detalhes</span>
+                </button>
+                <button data-view="guest-photos" aria-label="Ver Fotos" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-camera-retro text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Fotos</span>
+                </button>
+                <!-- Botão de Atividades com ID e escondido por padrão -->
+                <button id="activities-nav-button" data-view="activities" aria-label="Ver Atividades" class="nav-button flex-1 py-2 px-1 text-center hidden">
+                    <i class="fas fa-star text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Atividades</span>
+                </button>
+                <button data-view="guestbook" aria-label="Ver Mural de Recados" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-book-open text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Recados</span>
+                </button>
+                <button data-view="gifts" aria-label="Ver Lista de Presentes" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-gift text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Presentes</span>
+                </button>
+                <!-- Botão de Acesso com ID para texto dinâmico -->
+                <button id="rsvp-nav-button" data-view="rsvp" aria-label="Acessar área do convidado" class="nav-button flex-1 py-2 px-1 text-center">
+                    <i class="fas fa-envelope text-lg sm:text-xl"></i><span id="rsvp-nav-text" class="block text-[10px] sm:text-xs mt-1">Acesso</span>
+                </button>
             </div>
         </nav>
     </div>
