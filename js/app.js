@@ -12,17 +12,13 @@ const appState = {
     galleryUnsubscribe: null,
     guestbookUnsubscribe: null,
     giftListUnsubscribe: null,
+    rankingUnsubscribe: null, // Novo listener
     weddingDetails: null
 };
 
-// --- Funções de Ajuda e Utilitários ---
-
 function initializeDarkMode() {
-    const isDarkMode = localStorage.getItem('darkMode') === 'true' ||
-        (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (isDarkMode) {
-        document.documentElement.classList.add('dark');
-    }
+    const isDarkMode = localStorage.getItem('darkMode') === 'true' || (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDarkMode) document.documentElement.classList.add('dark');
     document.getElementById('toggle-dark-mode')?.addEventListener('click', () => {
         const isDark = document.documentElement.classList.toggle('dark');
         localStorage.setItem('darkMode', isDark.toString());
@@ -33,10 +29,12 @@ function cleanupListeners() {
     if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
     if (appState.guestbookUnsubscribe) appState.guestbookUnsubscribe();
     if (appState.giftListUnsubscribe) appState.giftListUnsubscribe();
+    if (appState.rankingUnsubscribe) appState.rankingUnsubscribe(); // Limpa o novo listener
     if (appState.countdownInterval) clearInterval(appState.countdownInterval);
     appState.galleryUnsubscribe = null;
     appState.guestbookUnsubscribe = null;
     appState.giftListUnsubscribe = null;
+    appState.rankingUnsubscribe = null;
     appState.countdownInterval = null;
 }
 
@@ -50,9 +48,7 @@ async function handleAccessKeyValidation(key) {
     }
 }
 
-// --- Funções de Manipulação de Eventos ---
-function handleNavigation(event) {
-    const view = event.currentTarget.dataset.view;
+function handleNavigation(view) {
     if (view) {
         window.history.pushState({ view }, '', `#${view}`);
         appState.currentView = view;
@@ -89,49 +85,30 @@ async function handleSignupSubmit(event) {
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
     
-    if (!key || !email || password.length < 6) {
-        UI.showToast('Por favor, verifique todos os campos obrigatórios.', 'error');
-        return;
-    }
-    const guestNameInputs = document.querySelectorAll('.guest-name-input');
-    const guestNames = Array.from(guestNameInputs).map(input => input.value.trim()).filter(name => name);
-    if (guestNames.length === 0) {
-        UI.showToast('Pelo menos um nome de convidado é obrigatório.', 'error');
-        return;
-    }
+    if (!key || !email || password.length < 6) return UI.showToast('Por favor, verifique todos os campos obrigatórios.', 'error');
+    const guestNames = Array.from(document.querySelectorAll('.guest-name-input')).map(input => input.value.trim()).filter(name => name);
+    if (guestNames.length === 0) return UI.showToast('Pelo menos um nome de convidado é obrigatório.', 'error');
 
     UI.setButtonLoading(button, true);
-
     try {
-        const { isValid, isUsed, docId, data } = await handleAccessKeyValidation(key);
+        const { isValid, isUsed, docId } = await handleAccessKeyValidation(key);
         if (!isValid || isUsed) {
             UI.showToast(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.", 'error');
-            UI.setButtonLoading(button, false);
             return;
         }
         const mainGuestName = guestNames[0];
         const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked')?.value === 'yes';
-        await Firebase.signupUser({
-            name: mainGuestName,
-            email: email,
-            password: password,
-            keyDocId: docId,
-            guestNames: guestNames,
-            willAttendRestaurant: willAttendRestaurant
-        });
+        await Firebase.signupUser({ name: mainGuestName, email, password, keyDocId: docId, guestNames, willAttendRestaurant });
         UI.showToast(`Bem-vindo(a), ${mainGuestName}! Cadastro realizado.`, 'success');
     } catch (error) {
         console.error('Erro no cadastro:', error);
-        const message = error.code === 'auth/email-already-in-use' 
-            ? "Este email já está cadastrado." 
-            : "Erro ao criar a conta. Verifique os dados.";
+        const message = error.code === 'auth/email-already-in-use' ? "Este email já está cadastrado." : "Erro ao criar a conta. Verifique os dados.";
         UI.showToast(message, 'error');
     } finally {
         UI.setButtonLoading(button, false);
     }
 }
 
-// CORRIGIDO: Chama as funções específicas do Firebase
 async function handleSocialLogin(provider, button) {
     UI.setButtonLoading(button, true);
     try {
@@ -149,24 +126,17 @@ async function handleSocialLogin(provider, button) {
     }
 }
 
-// CORRIGIDO: Chama as funções específicas do Firebase
 async function handleSocialSignup(provider, button) {
     const key = document.getElementById('signup-key')?.value.trim();
-    if (!key) {
-        UI.showToast("Por favor, insira sua chave de acesso antes de usar o cadastro rápido.", 'info');
-        return;
-    }
+    if (!key) return UI.showToast("Por favor, insira sua chave de acesso antes de usar o cadastro rápido.", 'info');
 
     UI.setButtonLoading(button, true);
-    
     try {
         const { isValid, isUsed, docId, data } = await handleAccessKeyValidation(key);
         if (!isValid || isUsed) {
             UI.showToast(isUsed ? "Esta chave já foi utilizada." : "Chave de acesso inválida.", 'error');
-            UI.setButtonLoading(button, false);
             return;
         }
-        
         let result;
         switch (provider) {
             case 'google': result = await Firebase.signInWithGoogle(); break;
@@ -174,26 +144,15 @@ async function handleSocialSignup(provider, button) {
             case 'apple': result = await Firebase.signInWithApple(); break;
         }
         const user = result.user;
-
         UI.showSocialSignupModal(data, async ({ guestNames, willAttendRestaurant }) => {
             try {
-                await Firebase.signupUser({
-                    name: user.displayName || guestNames[0],
-                    email: user.email,
-                    password: null, 
-                    keyDocId: docId,
-                    guestNames: guestNames,
-                    willAttendRestaurant: willAttendRestaurant,
-                    socialProvider: provider,
-                    user: user
-                });
+                await Firebase.signupUser({ name: user.displayName || guestNames[0], email: user.email, password: null, keyDocId: docId, guestNames, willAttendRestaurant, socialProvider: provider, user: user });
                 UI.showToast(`Bem-vindo(a), ${user.displayName}! Cadastro concluído.`, 'success');
             } catch (signupError) {
                 console.error(`Erro no cadastro com ${provider}:`, signupError);
                 UI.showToast(`Erro ao finalizar cadastro com ${provider}.`, 'error');
             }
         });
-        
     } catch (error) {
         console.error(`Erro no cadastro com ${provider}:`, error);
         UI.showToast(`Erro ao iniciar cadastro com ${provider}.`, 'error');
@@ -202,24 +161,21 @@ async function handleSocialSignup(provider, button) {
     }
 }
 
-
 async function handlePhotoUploadClick() {
     const fileInput = document.getElementById('photo-input');
     const uploadBtn = document.getElementById('upload-button');
     const file = fileInput.files[0];
-    const user = appState.currentUser;
-    if (!file || !user) return;
-    
+    if (!file || !appState.currentUser) return;
     const progressContainer = document.getElementById('upload-progress-container');
     const progressBar = document.getElementById('progress-bar');
     progressContainer.classList.remove('hidden');
     UI.setButtonLoading(uploadBtn, true);
     try {
-        await Firebase.uploadPhoto(file, user, (progress) => {
-            progressBar.style.width = `${progress}%`;
-        });
+        await Firebase.uploadPhoto(file, appState.currentUser, (progress) => { progressBar.style.width = `${progress}%`; });
+        // ATUALIZADO: Adiciona pontos de engajamento
+        await Firebase.incrementEngagementScore(appState.currentUser, 'photo', 10);
         fileInput.value = '';
-        UI.showToast('Foto enviada com sucesso!', 'success');
+        UI.showToast('Foto enviada com sucesso! +10 pontos!', 'success');
     } catch (error) {
         UI.showToast('Erro no upload. Tente novamente.', 'error');
     } finally {
@@ -230,18 +186,17 @@ async function handlePhotoUploadClick() {
 
 async function handleGuestbookSubmit(event) {
     event.preventDefault();
-    const form = event.target;
-    const button = form.querySelector('button[type="submit"]');
+    const button = event.currentTarget.querySelector('button[type="submit"]');
     const messageInput = document.getElementById('guestbook-message');
     const message = messageInput.value.trim();
-    const user = appState.currentUser;
-    if (!message || !user) return;
-
+    if (!message || !appState.currentUser) return;
     UI.setButtonLoading(button, true);
     try {
-        await Firebase.postGuestbookMessage(user, message);
+        await Firebase.postGuestbookMessage(appState.currentUser, message);
+        // ATUALIZADO: Adiciona pontos de engajamento
+        await Firebase.incrementEngagementScore(appState.currentUser, 'guestbook', 15);
         messageInput.value = '';
-        UI.showToast('Sua mensagem foi enviada!', 'success');
+        UI.showToast('Sua mensagem foi enviada! +15 pontos!', 'success');
     } catch (error) {
         UI.showToast('Erro ao enviar mensagem.', 'error');
     } finally {
@@ -251,25 +206,19 @@ async function handleGuestbookSubmit(event) {
 
 async function handleRsvpUpdate(event) {
     event.preventDefault();
-    const form = event.target;
-    const button = form.querySelector('button[type="submit"]');
+    const button = event.target.querySelector('button[type="submit"]');
     UI.setButtonLoading(button, true);
-
-    const guestNameInputs = form.querySelectorAll('.guest-name-input');
-    const guestNames = Array.from(guestNameInputs).map(input => input.value.trim()).filter(name => name);
-    const willAttendRestaurant = form.querySelector('input[name="attend-restaurant-update"]:checked')?.value === 'yes';
-
+    const guestNames = Array.from(event.target.querySelectorAll('.guest-name-input')).map(input => input.value.trim()).filter(name => name);
+    const willAttendRestaurant = event.target.querySelector('input[name="attend-restaurant-update"]:checked')?.value === 'yes';
     if (guestNames.length === 0) {
         UI.showToast('Pelo menos um nome de convidado é necessário.', 'error');
         UI.setButtonLoading(button, false);
         return;
     }
-
     try {
-        await Firebase.updateRsvpDetails(appState.accessKeyInfo.key, {
-            guestNames,
-            willAttendRestaurant
-        });
+        await Firebase.updateRsvpDetails(appState.accessKeyInfo.key, { guestNames, willAttendRestaurant });
+        appState.accessKeyInfo.data.willAttendRestaurant = willAttendRestaurant;
+        renderCurrentView();
         UI.showToast('Confirmação atualizada com sucesso!', 'success');
         UI.toggleRsvpModal(false);
     } catch (error) {
@@ -280,12 +229,8 @@ async function handleRsvpUpdate(event) {
     }
 }
 
-
-// --- Funções de Configuração de Listeners ---
 function setupNavListeners() {
-    document.querySelectorAll('.nav-button').forEach(button => {
-        button.addEventListener('click', handleNavigation);
-    });
+    document.querySelectorAll('.nav-button').forEach(button => button.addEventListener('click', (e) => handleNavigation(e.currentTarget.dataset.view)));
 }
 
 function setupAuthFormListeners() {
@@ -293,13 +238,9 @@ function setupAuthFormListeners() {
     document.getElementById('signup-form')?.addEventListener('submit', handleSignupSubmit);
     document.getElementById('show-signup')?.addEventListener('click', handleAuthFormSwitch);
     document.getElementById('show-login')?.addEventListener('click', handleAuthFormSwitch);
-
-    // Listeners para login social
     document.getElementById('google-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('google', e.currentTarget));
     document.getElementById('facebook-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('facebook', e.currentTarget));
     document.getElementById('apple-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('apple', e.currentTarget));
-    
-    // Listeners para cadastro social
     document.getElementById('google-signup-button')?.addEventListener('click', (e) => handleSocialSignup('google', e.currentTarget));
     document.getElementById('facebook-signup-button')?.addEventListener('click', (e) => handleSocialSignup('facebook', e.currentTarget));
     document.getElementById('apple-signup-button')?.addEventListener('click', (e) => handleSocialSignup('apple', e.currentTarget));
@@ -307,52 +248,48 @@ function setupAuthFormListeners() {
 
 function setupViewSpecificListeners() {
     cleanupListeners();
-
-    if (appState.currentView === 'home' && appState.weddingDetails) {
-        appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
+    if (appState.currentView === 'home' && appState.weddingDetails) appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
+    
+    if (appState.currentView === 'guest-photos' && appState.currentUser) {
+        document.getElementById('upload-button')?.addEventListener('click', handlePhotoUploadClick);
+        appState.galleryUnsubscribe = Firebase.listenToGuestPhotos(UI.renderGuestPhotos);
     }
-    if (appState.currentView === 'guest-photos') {
-        if (appState.currentUser) {
-            document.getElementById('upload-button')?.addEventListener('click', handlePhotoUploadClick);
-            appState.galleryUnsubscribe = Firebase.listenToGuestPhotos(UI.renderGuestPhotos);
-        }
-    }
+    
     if (appState.currentView === 'guestbook') {
-        document.getElementById('open-login-button')?.addEventListener('click', () => {
-            UI.renderAuthForm('login');
-            setupAuthFormListeners();
-        });
-        if (appState.currentUser) {
-            document.getElementById('guestbook-form')?.addEventListener('submit', handleGuestbookSubmit);
-        }
+        document.getElementById('open-login-button')?.addEventListener('click', () => { UI.renderAuthForm('login'); setupAuthFormListeners(); });
+        if (appState.currentUser) document.getElementById('guestbook-form')?.addEventListener('submit', handleGuestbookSubmit);
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
-    if (appState.currentView === 'gifts') {
-        if (appState.currentUser) {
-            appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
-                UI.renderGiftList(gifts, appState.currentUser);
-                document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', async (e) => {
-                    const button = e.currentTarget;
-                    UI.setButtonLoading(button, true);
-                    try {
-                        await Firebase.unmarkGiftAsTaken(button.dataset.id);
-                        UI.showToast('Escolha desfeita.', 'success');
-                    } catch (err) {
-                        console.error("Error unmarking gift:", err);
-                        UI.showToast('Erro ao desfazer a escolha.', 'error');
-                    } finally {
-                        UI.setButtonLoading(button, false);
-                    }
-                }));
-                UI.initializeGiftEventListeners(appState.weddingDetails);
-            });
-        }
-    }
-    if (appState.currentView === 'rsvp') {
-        document.getElementById('open-login-button')?.addEventListener('click', () => {
-            UI.renderAuthForm('login');
-            setupAuthFormListeners();
+
+    // NOVO: Listener para a página de Atividades/Ranking
+    if (appState.currentView === 'activities' && appState.currentUser) {
+        appState.rankingUnsubscribe = Firebase.listenToRanking((rankingData) => {
+            UI.renderRanking(rankingData, appState.currentUser.uid);
         });
+    }
+    
+    if (appState.currentView === 'gifts' && appState.currentUser) {
+        appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
+            UI.renderGiftList(gifts, appState.currentUser);
+            document.querySelectorAll('.unmark-gift-btn').forEach(btn => btn.addEventListener('click', async (e) => {
+                const button = e.currentTarget;
+                UI.setButtonLoading(button, true);
+                try {
+                    await Firebase.unmarkGiftAsTaken(button.dataset.id);
+                    // ATUALIZADO: Remove pontos ao desfazer
+                    await Firebase.incrementEngagementScore(appState.currentUser, 'gift', -25);
+                    UI.showToast('Escolha desfeita.', 'success');
+                } catch (err) {
+                    console.error("Error unmarking gift:", err);
+                    UI.showToast('Erro ao desfazer a escolha.', 'error');
+                } finally { UI.setButtonLoading(button, false); }
+            }));
+            UI.initializeGiftEventListeners(appState.weddingDetails, appState.currentUser);
+        });
+    }
+    
+    if (appState.currentView === 'rsvp') {
+        document.getElementById('open-login-button')?.addEventListener('click', () => { UI.renderAuthForm('login'); setupAuthFormListeners(); });
         document.getElementById('open-signup-button')?.addEventListener('click', async () => {
             const key = prompt("Por favor, insira sua chave de acesso para iniciar o cadastro:");
             if (key) {
@@ -361,9 +298,7 @@ function setupViewSpecificListeners() {
                     appState.accessKeyInfo = { key: key.trim(), data };
                     UI.renderAuthForm('signup', key.trim(), data);
                     setupAuthFormListeners();
-                } else {
-                    UI.showToast(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.", 'error');
-                }
+                } else { UI.showToast(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.", 'error'); }
             }
         });
         document.getElementById('manage-rsvp-button')?.addEventListener('click', async () => {
@@ -371,10 +306,9 @@ function setupViewSpecificListeners() {
             const existingNames = await Firebase.getGuestNames(appState.accessKeyInfo.key);
             UI.renderRsvpManagementModal(keyData, existingNames, handleRsvpUpdate);
         });
+        document.querySelectorAll('.quick-nav-button').forEach(btn => btn.addEventListener('click', (e) => handleNavigation(e.currentTarget.dataset.viewTarget)));
     }
 }
-
-// --- Funções Principais ---
 
 function renderCurrentView() {
     UI.renderView(appState.currentView, appState.currentUser, appState.weddingDetails, appState.accessKeyInfo);
@@ -384,32 +318,24 @@ function renderCurrentView() {
 async function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
     if (!container) return;
-
     if (user && !appState.accessKeyInfo) {
         const keyInfo = await Firebase.findAccessKeyForUser(user.email);
-        if (keyInfo) {
-            appState.accessKeyInfo = keyInfo;
-        }
+        if (keyInfo) appState.accessKeyInfo = keyInfo;
     } else if (!user) {
         appState.accessKeyInfo = null;
     }
-
     container.innerHTML = ''; 
     if (user) {
         const welcomeText = document.createElement('span');
         welcomeText.className = 'text-sm text-gray-600 dark:text-gray-300 hidden sm:inline';
-        const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Convidado';
-        welcomeText.textContent = `Olá, ${firstName}`;
-        
+        welcomeText.textContent = `Olá, ${user.displayName ? user.displayName.split(' ')[0] : 'Convidado'}`;
         const logoutButton = document.createElement('button');
         logoutButton.title = 'Sair';
         logoutButton.setAttribute('aria-label', 'Sair da conta');
         logoutButton.className = 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-dark-primary transition-colors';
         logoutButton.innerHTML = '<i class="fas fa-sign-out-alt fa-lg"></i>';
         logoutButton.addEventListener('click', () => Firebase.auth.signOut());
-        
         container.appendChild(welcomeText);
-        
         if (adminEmails.includes(user.email)) {
             const adminButton = document.createElement('a');
             adminButton.href = 'admin.html';
@@ -428,7 +354,6 @@ function setupModalListeners() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     document.getElementById('close-pix-modal').addEventListener('click', () => UI.togglePixModal(false));
     document.getElementById('close-rsvp-modal')?.addEventListener('click', () => UI.toggleRsvpModal(false));
-
     document.getElementById('pix-modal').addEventListener('click', async (e) => {
         if (e.target.closest('#copy-pix-button')) {
             const input = document.getElementById('pix-copy-paste');
@@ -442,19 +367,22 @@ function setupModalListeners() {
             UI.setButtonLoading(confirmButton, true);
             try {
                 await Firebase.markGiftAsTaken(giftId, appState.currentUser);
+                // ATUALIZADO: Adiciona pontos de engajamento
+                await Firebase.incrementEngagementScore(appState.currentUser, 'gift', 25);
                 UI.togglePixModal(false);
-                UI.showToast('Obrigado pelo seu presente!', 'success');
+                UI.showToast('Obrigado pelo seu presente! +25 pontos!', 'success');
             } catch (err) {
                 console.error("Erro ao marcar presente:", err);
                 UI.showToast("Ocorreu um erro ao confirmar o seu presente.", 'error');
-                UI.setButtonLoading(confirmButton, false);
+            } finally {
+                // O botão é destruído com o modal, então não precisa resetar o loading
             }
         }
     });
 }
 
 window.onpopstate = (event) => {
-    if (event.state && event.state.view) {
+    if (event.state?.view) {
         appState.currentView = event.state.view;
         renderCurrentView();
     }
@@ -467,25 +395,22 @@ async function initApp() {
             document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento.</div>`;
             return;
         }
-
         UI.initToast();
         document.getElementById('loading-title').textContent = appState.weddingDetails.coupleNames;
         document.getElementById('page-title').textContent = appState.weddingDetails.coupleNames;
-
         initializeDarkMode();
         setupNavListeners();
         setupModalListeners();
-
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
+        // ATUALIZADO: Adiciona a nova view 'activities'
+        const validViews = ['home', 'details', 'activities', 'guestbook', 'gifts', 'rsvp'];
+        appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
-        appState.currentView = viewFromHash || 'home';
-        
         Firebase.auth.onAuthStateChanged(async (user) => {
             appState.currentUser = user;
             await updateUserArea(user);
-
             if (keyFromUrl && !user) {
                 const { isValid, isUsed, data } = await handleAccessKeyValidation(keyFromUrl);
                 if (isValid && !isUsed) {
@@ -496,28 +421,20 @@ async function initApp() {
                      UI.showToast('Este convite já foi utilizado. Por favor, faça login.', 'info');
                      UI.renderAuthForm('login');
                      setupAuthFormListeners();
-                } else {
-                    UI.showToast('Convite inválido.', 'error');
-                }
-            } else {
-                 UI.toggleAuthModal(false);
-            }
-            
+                } else { UI.showToast('Convite inválido.', 'error'); }
+            } else { UI.toggleAuthModal(false); }
             renderCurrentView();
         });
-
         setTimeout(() => {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('opacity-0');
             window.history.replaceState({ view: appState.currentView }, '', `#${appState.currentView}`);
             renderCurrentView();
         }, 500);
-
     } catch (error) {
         console.error('Erro fatal na inicialização:', error);
         document.body.innerHTML = `<div class="text-center p-8">Ocorreu um erro crítico ao carregar a aplicação. Verifique a sua ligação à Internet e tente novamente.</div>`;
     }
 }
 
-// Inicia a aplicação
 initApp();
