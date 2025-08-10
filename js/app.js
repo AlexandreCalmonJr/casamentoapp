@@ -1,5 +1,4 @@
 // js/app.js
-
 import { adminEmails } from './config.js';
 import * as Firebase from './firebase-service.js';
 import * as UI from './ui.js';
@@ -318,6 +317,38 @@ function setupViewSpecificListeners() {
             const userRole = appState.accessKeyInfo?.data?.role;
             if (userRole) {
                 UI.renderDressCodeModal(appState.weddingDetails.dressCodePalettes, userRole);
+                document.getElementById('download-pdf-dress-code')?.addEventListener('click', async () => {
+                    const pdfGen = new PDFGenerator();
+                    const userRole = appState.accessKeyInfo?.data?.role;
+                    if (userRole && appState.weddingDetails) {
+                        await pdfGen.generateDressCodePDF(
+                            appState.weddingDetails, 
+                            userRole, 
+                            appState.weddingDetails.dressCodePalettes
+                        );
+                        UI.showToast('PDF baixado com sucesso!', 'success');
+                    }
+                });
+                
+                document.getElementById('share-dress-code')?.addEventListener('click', () => {
+                    if (navigator.share) {
+                        navigator.share({
+                            title: 'Manual de Vestimenta',
+                            text: `Confira a paleta de cores para o casamento de ${appState.weddingDetails.coupleNames}`,
+                            url: window.location.href
+                        }).catch(console.error);
+                    } else {
+                        // Fallback para navegadores sem Web Share API
+                        const textArea = document.createElement('textarea');
+                        textArea.value = `Confira a paleta de cores para o casamento de ${appState.weddingDetails.coupleNames}: ${window.location.href}`;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        UI.showToast('Link copiado para a área de transferência!', 'success');
+                    }
+                });
+                
             }
         });
     }

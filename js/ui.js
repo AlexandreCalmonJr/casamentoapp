@@ -320,72 +320,172 @@ export function showSocialSignupModal(keyData, onComplete) {
 
 // ATUALIZADO: Mostra a paleta apenas para a função do usuário
 export function renderDressCodeModal(palettes, userRole) {
+    const modal = document.getElementById('dress-code-modal');
     const container = document.getElementById('dress-code-content-container');
-    const userPalette = palettes ? palettes[userRole] : null;
+    
+    if (!palettes[userRole] || palettes[userRole].length === 0) {
+        container.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-tshirt text-6xl text-gray-300 mb-4"></i>
+                <h2 class="text-2xl font-bold mb-4">Dress Code</h2>
+                <p class="text-gray-600 dark:text-gray-400">
+                    Não há paleta de cores específica para seu grupo.
+                    Use o dress code geral do evento.
+                </p>
+            </div>
+        `;
+    } else {
+        const colorsHTML = palettes[userRole].map(color => `
+            <div class="flex flex-col items-center">
+                <div class="w-16 h-16 rounded-full border-4 border-white shadow-lg mb-2" style="background-color: ${color};"></div>
+                <span class="text-xs font-mono text-gray-600 dark:text-gray-400">${color.toUpperCase()}</span>
+            </div>
+        `).join('');
 
-    if (!container || !userPalette || userPalette.length === 0) {
-        container.innerHTML = `<h2 class="text-2xl font-cursive text-center mb-4">Manual de Vestimentas</h2><p class="text-center text-gray-500">Nenhuma paleta de cores foi definida para sua função (${userRole}).</p>`;
-        toggleDressCodeModal(true);
-        return;
+        container.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-palette text-6xl text-primary dark:text-dark-primary mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Paleta de Cores</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                    Especial para: <strong>${userRole}</strong>
+                </p>
+                
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-4 mb-8">
+                    ${colorsHTML}
+                </div>
+                
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
+                    <h3 class="font-semibold mb-2 text-sm">Dicas:</h3>
+                    <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                        <li>• Use estas cores como base para sua roupa</li>
+                        <li>• Combine com tons neutros</li>
+                        <li>• Evite branco (reservado para a noiva)</li>
+                    </ul>
+                </div>
+                
+                <div class="space-y-3">
+                    <button id="download-pdf-dress-code" class="w-full bg-primary hover:bg-primary/90 text-white py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
+                        <i class="fas fa-file-pdf mr-2"></i>
+                        Baixar Manual Completo (PDF)
+                    </button>
+                    
+                    <button id="share-dress-code" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                        <i class="fas fa-share-alt mr-2"></i>
+                        Compartilhar
+                    </button>
+                </div>
+            </div>
+        `;
     }
-
-    let content = `<h2 class="text-3xl font-cursive text-center mb-6">Manual de Vestimentas para ${userRole}</h2><div class="space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar p-2">`;
-    content += `<div><h3 class="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-300 text-center">Sua paleta de cores sugerida:</h3><div class="flex flex-wrap gap-4 justify-center">`;
-    userPalette.forEach(color => {
-        content += `<div class="text-center"><div class="w-20 h-20 rounded-full shadow-md border-4 border-white dark:border-gray-700" style="background-color: ${color};"></div><p class="text-xs mt-2 font-mono">${color}</p></div>`;
-    });
-    content += `</div></div></div>`;
-    container.innerHTML = content;
-    toggleDressCodeModal(true);
+    
+    modal.classList.remove('hidden');
 }
 export function toggleDressCodeModal(show) { document.getElementById('dress-code-modal').classList.toggle('hidden', !show); }
 
-export function showTutorialModal(onFinish) {
-    const container = document.getElementById('tutorial-content-container');
+export function showTutorialModal(onComplete) {
+    const modal = document.getElementById('tutorial-modal');
+    const contentContainer = document.getElementById('tutorial-content-container');
     const navContainer = document.getElementById('tutorial-nav');
-    if (!container || !navContainer) return;
-
-    const slides = [
-        { icon: 'fa-envelope-open-text', title: 'Bem-vindo(a)!', text: 'Este é o seu portal exclusivo para o nosso casamento. Vamos ver como tudo funciona?' },
-        { icon: 'fa-user-check', title: 'Cadastro e RSVP', text: 'Primeiro, use sua chave de acesso para se cadastrar. Depois, confirme sua presença e de seus acompanhantes na aba "Acesso" (que vira "Portal").' },
-        { icon: 'fa-gift', title: 'Presentes e Recados', text: 'Navegue pela nossa lista de presentes ou deixe uma mensagem de carinho no nosso mural de recados.' },
-        { icon: 'fa-camera-retro', title: 'Compartilhe os Momentos', text: 'No dia do evento, use a aba "Fotos" para compartilhar seus registros e participar da nossa caça ao tesouro fotográfica!' },
-        { icon: 'fa-trophy', title: 'Participe e Ganhe Pontos!', text: 'Suas interações no site, como enviar fotos e mensagens, geram pontos. Acompanhe o ranking na aba "Atividades"!' }
-    ];
-
-    let currentSlide = 0;
-
-    function renderSlide() {
-        const slide = slides[currentSlide];
-        container.innerHTML = `<div class="animate-fade-in"><i class="fas ${slide.icon} text-4xl text-primary dark:text-dark-primary mb-4"></i><h3 class="text-2xl font-serif mb-2">${slide.title}</h3><p class="text-gray-600 dark:text-gray-400">${slide.text}</p></div>`;
-        
-        const prevButton = currentSlide > 0 ? `<button id="tutorial-prev" class="py-2 px-4 bg-gray-200 dark:bg-gray-600 rounded">Anterior</button>` : `<div></div>`;
-        const nextButton = currentSlide < slides.length - 1 ? `<button id="tutorial-next" class="py-2 px-4 bg-primary text-white rounded">Próximo</button>` : `<button id="tutorial-finish" class="py-2 px-4 bg-green-600 text-white rounded">Entendi, vamos lá!</button>`;
-        
-        navContainer.innerHTML = `${prevButton}${nextButton}`;
-    }
-
-    function cleanup() {
-        toggleTutorialModal(false);
-        if (typeof onFinish === 'function') onFinish();
-        document.body.removeEventListener('click', tutorialClickHandler);
-    }
-
-    function tutorialClickHandler(e) {
-        if (e.target.id === 'tutorial-next') {
-            currentSlide++;
-            renderSlide();
-        } else if (e.target.id === 'tutorial-prev') {
-            currentSlide--;
-            renderSlide();
-        } else if (e.target.id === 'tutorial-finish') {
-            cleanup();
+    
+    const tutorialSteps = [
+        {
+            icon: 'fas fa-heart',
+            title: 'Bem-vindo(a)!',
+            content: 'Este é nosso convite digital interativo! Aqui você encontrará todas as informações sobre nosso grande dia e poderá participar de atividades especiais.',
+            color: 'text-red-500'
+        },
+        {
+            icon: 'fas fa-user-plus',
+            title: 'Faça seu Cadastro',
+            content: 'Para acessar todas as funcionalidades, você precisa se cadastrar usando a chave de acesso que enviamos. Isso nos ajuda a organizar melhor o evento!',
+            color: 'text-blue-500'
+        },
+        {
+            icon: 'fas fa-camera',
+            title: 'Compartilhe Momentos',
+            content: 'Envie fotos suas e dos preparativos! Elas aparecerão na nossa galeria compartilhada. Cada foto enviada ganha pontos!',
+            color: 'text-green-500'
+        },
+        {
+            icon: 'fas fa-gift',
+            title: 'Lista de Presentes',
+            content: 'Consulte nossa lista de presentes e contribua via PIX de forma prática e segura. Você também pode dar um valor personalizado!',
+            color: 'text-yellow-500'
+        },
+        {
+            icon: 'fas fa-book-open',
+            title: 'Mural de Recados',
+            content: 'Deixe uma mensagem carinhosa para nós! Todos os recados ficarão salvos como lembrança deste dia especial.',
+            color: 'text-purple-500'
+        },
+        {
+            icon: 'fas fa-star',
+            title: 'Sistema de Pontos',
+            content: 'Participe das atividades e ganhe pontos! Enviar fotos, deixar recados e escolher presentes te dão pontos no ranking dos convidados mais ativos.',
+            color: 'text-orange-500'
+        },
+        {
+            icon: 'fas fa-palette',
+            title: 'Paleta de Cores',
+            content: 'Se você é padrinho, madrinha ou tem função especial, pode acessar sua paleta de cores personalizada e baixar um manual em PDF!',
+            color: 'text-indigo-500'
         }
-    }
-
-    document.body.addEventListener('click', tutorialClickHandler);
-
-    renderSlide();
-    toggleTutorialModal(true);
+    ];
+    
+    let currentStep = 0;
+    
+    const renderStep = () => {
+        const step = tutorialSteps[currentStep];
+        contentContainer.innerHTML = `
+            <div class="text-center">
+                <div class="mb-6">
+                    <i class="${step.icon} text-6xl ${step.color}"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-4">${step.title}</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                    ${step.content}
+                </p>
+                <div class="flex justify-center space-x-2 mb-4">
+                    ${tutorialSteps.map((_, index) => `
+                        <div class="w-2 h-2 rounded-full ${index === currentStep ? 'bg-primary dark:bg-dark-primary' : 'bg-gray-300 dark:bg-gray-600'}"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        navContainer.innerHTML = `
+            <button id="tutorial-prev" class="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${currentStep === 0 ? 'invisible' : ''}">
+                <i class="fas fa-chevron-left mr-1"></i> Anterior
+            </button>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                ${currentStep + 1} de ${tutorialSteps.length}
+            </div>
+            <button id="tutorial-next" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg">
+                ${currentStep === tutorialSteps.length - 1 ? 'Começar!' : 'Próximo'} 
+                ${currentStep < tutorialSteps.length - 1 ? '<i class="fas fa-chevron-right ml-1"></i>' : ''}
+            </button>
+        `;
+        
+        // Event listeners
+        document.getElementById('tutorial-prev')?.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
+                renderStep();
+            }
+        });
+        
+        document.getElementById('tutorial-next')?.addEventListener('click', () => {
+            if (currentStep < tutorialSteps.length - 1) {
+                currentStep++;
+                renderStep();
+            } else {
+                modal.classList.add('hidden');
+                onComplete();
+            }
+        });
+    };
+    
+    renderStep();
+    modal.classList.remove('hidden');
 }
 export function toggleTutorialModal(show) { document.getElementById('tutorial-modal').classList.toggle('hidden', !show); }
