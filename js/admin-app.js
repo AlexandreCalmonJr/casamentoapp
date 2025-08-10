@@ -3,6 +3,7 @@
 import * as UI from './admin-ui.js';
 import { adminEmails } from './config.js';
 import { auth, db } from './firebase-service.js';
+import { PDFGenerator } from './pdf-generator.js';
 
 const state = {
     currentTab: 'report',
@@ -97,7 +98,6 @@ async function handleSaveDetails(event) {
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
-    // ATUALIZA O ESTADO LOCAL COM OS NOVOS DADOS PARA EVITAR RECARREGAMENTO
     state.weddingDetails = { ...state.weddingDetails, ...updatedDetails };
     
     UI.setButtonLoading(button, false);
@@ -246,16 +246,16 @@ function setupPaletteEditorListeners() {
     if (!editor) return;
 
     editor.addEventListener('click', (e) => {
-        if (e.target.closest('.add-color-btn')) {
-            const button = e.target.closest('.add-color-btn');
-            const group = button.dataset.group;
-            const colorInput = button.previousElementSibling;
+        const addBtn = e.target.closest('.add-color-btn');
+        if (addBtn) {
+            const group = addBtn.dataset.group;
+            const colorInput = addBtn.previousElementSibling;
             const newColor = colorInput.value;
             const colorsContainer = editor.querySelector(`.palette-group[data-group="${group}"] .palette-colors`);
             
             const newColorHTML = `
                 <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${newColor};">
-                    <button class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${newColor}" data-group="${group}">
+                    <button type="button" class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${newColor}" data-group="${group}">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -263,8 +263,9 @@ function setupPaletteEditorListeners() {
             colorsContainer.insertAdjacentHTML('beforeend', newColorHTML);
         }
 
-        if (e.target.closest('.delete-color-btn')) {
-            e.target.closest('.relative.group').remove();
+        const deleteBtn = e.target.closest('.delete-color-btn');
+        if (deleteBtn) {
+            deleteBtn.closest('.relative.group').remove();
         }
     });
 }
@@ -280,6 +281,20 @@ async function loadTab(tabName) {
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
+        
+        // ATIVAÇÃO DA GERAÇÃO DE PDF
+        const pdfGenerator = new PDFGenerator();
+        document.querySelectorAll('[id^="preview-pdf-"]').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const role = e.currentTarget.dataset.role;
+                const detailsDoc = await db.collection('siteConfig').doc('details').get();
+                const currentDetails = detailsDoc.data();
+                if (currentDetails) {
+                    await pdfGenerator.generateDressCodePDF(currentDetails, role, currentDetails.dressCodePalettes);
+                }
+            });
+        });
+
     } else if (tabName === 'keys') {
         DOMElements.tabContent.innerHTML = UI.renderKeyManager();
         document.getElementById('generate-key-button').addEventListener('click', handleGenerateKey);
@@ -357,7 +372,14 @@ async function initializeApp() {
         const isAuthorized = user && adminEmails.includes(user.email);
         if (isAuthorized) {
             const detailsDoc = await db.collection('siteConfig').doc('details').get();
-            state.weddingDetails = detailsDoc.data();
+            if (detailsDoc.exists) {
+                const data = detailsDoc.data();
+                state.weddingDetails = {
+                    ...data,
+                    weddingDate: data.weddingDate.toDate(),
+                    rsvpDate: data.rsvpDate.toDate()
+                };
+            }
             DOMElements.adminDashboard.classList.remove('hidden');
             DOMElements.loginScreen.classList.add('hidden');
             DOMElements.adminEmailEl.textContent = user.email;
