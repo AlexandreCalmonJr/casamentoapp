@@ -37,30 +37,13 @@ export function setButtonLoading(button, isLoading) {
     }
 }
 
-const badges = {
-    PHOTO_1: { icon: 'fa-camera', title: 'Fotógrafo Iniciante', description: 'Enviou sua primeira foto!', color: 'bg-blue-500' },
-    PHOTO_5: { icon: 'fa-camera-retro', title: 'Paparazzi', description: 'Enviou 5 fotos!', color: 'bg-indigo-500' },
-    GUESTBOOK_1: { icon: 'fa-pencil-alt', title: 'Memorialista', description: 'Deixou o primeiro recado!', color: 'bg-green-500' },
-    GUESTBOOK_3: { icon: 'fa-book-open', title: 'Poeta do Casal', description: 'Deixou 3 recados!', color: 'bg-teal-500' },
-    GIFT_1: { icon: 'fa-gift', title: 'Coração de Ouro', description: 'Nos presenteou com muito carinho!', color: 'bg-yellow-500' },
-    TOP_3: { icon: 'fa-trophy', title: 'Pódio de Honra', description: 'Está no Top 3 do ranking!', color: 'bg-amber-400' }
-};
-
-function checkAndAssignBadges(userData) {
-    const userBadges = new Set(userData.badges || []);
-    if (userData.photoCount >= 1) userBadges.add('PHOTO_1');
-    if (userData.photoCount >= 5) userBadges.add('PHOTO_5');
-    if (userData.guestbookCount >= 1) userBadges.add('GUESTBOOK_1');
-    if (userData.guestbookCount >= 3) userBadges.add('GUESTBOOK_3');
-    if (userData.giftCount >= 1) userBadges.add('GIFT_1');
-    return Array.from(userBadges);
-}
-
 export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) {
     if (!weddingDetails) return `<div class="text-center p-8"><div class="animate-pulse"><div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div><div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div></div></div>`;
 
     const formatDate = (date) => date ? date.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Data não disponível';
     const formatTime = (date) => date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Horário não disponível';
+
+    const specialRoles = ["Padrinho", "Madrinha", "Amigo do Noivo", "Amiga da Noiva"];
 
     switch (viewName) {
         case 'home':
@@ -69,7 +52,6 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
         case 'details':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Detalhes do Evento</h1></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Cerimônia</h3><div class="flex items-center"><i class="fas fa-calendar-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatDate(weddingDetails.weddingDate)}</span></div><div class="flex items-center"><i class="fas fa-clock fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatTime(weddingDetails.weddingDate)}h</span></div><div class="flex items-center"><i class="fas fa-map-marker-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.venue}</span></div><div class="flex items-center"><i class="fas fa-user-tie fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>Traje: ${weddingDetails.dressCode}</span></div></div>${weddingDetails.restaurantName ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3><div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div><div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress}</span></div><div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo}</span></div>${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}</div>` : ''}</div>`;
         
-        // CORREÇÃO: A view 'guest-photos' foi restaurada e está totalmente funcional
         case 'guest-photos':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center mb-4">Olá, ${user.displayName}! Compartilhe seus registros.</p><div class="flex flex-col sm:flex-row items-center gap-4"><input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/><button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button></div><div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2><ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300"><li>Uma foto com alguém que você acabou de conhecer</li><li>Uma foto do seu detalhe favorito da decoração</li><li>Uma selfie com os noivos</li><li>A foto mais divertida do casamento!</li></ul></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Galeria Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver e enviar fotos, por favor, faça o login na aba "Acesso".</p></div>`}<div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>`;
 
@@ -85,20 +67,25 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
         case 'gifts':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Lista de Presentes</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sua presença é o nosso maior presente! Mas se desejar nos presentear, preparamos com carinho esta lista de sugestões.</p><div id="gift-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Lista Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa lista de presentes, por favor, faça o login na aba "Acesso".</p></div>`}</div>`;
         
+        // ATUALIZADO: Botão de Manual de Vestimentas condicional
         case 'rsvp':
             if (user && accessKeyInfo) {
-                const { guestName, allowedGuests, willAttendRestaurant } = accessKeyInfo.data;
+                const { guestName, allowedGuests, willAttendRestaurant, role } = accessKeyInfo.data;
+                const dressCodeButtonHTML = specialRoles.includes(role) 
+                    ? `<button id="dress-code-button" class="bg-accent text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all col-span-1 md:col-span-2"><i class="fas fa-palette mr-2"></i>Manual de Vestimentas</button>`
+                    : '';
+
                 return `
                     <div class="space-y-8">
                         <div class="text-center"><h1 class="text-4xl font-cursive text-primary dark:text-dark-primary">Bem-vindo(a), ${guestName}!</h1><p class="text-gray-600 dark:text-gray-400 mt-2">Seu portal exclusivo para o nosso grande dia.</p></div>
                         <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-semibold mb-4 border-b pb-2">Sua Confirmação (RSVP)</h2><div class="flex items-center justify-between text-lg"><span><i class="fas fa-users fa-fw mr-2 text-gray-500"></i>Convidados:</span><span class="font-bold text-primary dark:text-dark-primary">${allowedGuests}</span></div><div class="flex items-center justify-between text-lg mt-2"><span><i class="fas fa-utensils fa-fw mr-2 text-gray-500"></i>Presença no Restaurante:</span><span class="font-bold ${willAttendRestaurant ? 'text-green-500' : 'text-red-500'}">${willAttendRestaurant ? 'Confirmada' : 'Não Confirmada'}</span></div></div>
                         <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-semibold mb-4 border-b pb-2">Agenda do Dia</h2><ol class="relative border-l border-gray-200 dark:border-gray-700 ml-4"><li class="mb-10 ml-6"><span class="absolute flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-blue-900"><i class="fas fa-church text-blue-800 dark:text-blue-300"></i></span><h3 class="flex items-center mb-1 text-lg font-semibold text-gray-900 dark:text-white">Cerimônia</h3><time class="block mb-2 text-sm font-normal leading-none text-gray-400 dark:text-gray-500">${formatTime(weddingDetails.weddingDate)}h</time><p class="text-base font-normal text-gray-500 dark:text-gray-400">${weddingDetails.venue}</p></li><li class="ml-6"><span class="absolute flex items-center justify-center w-8 h-8 bg-green-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-green-900"><i class="fas fa-glass-cheers text-green-800 dark:text-green-300"></i></span><h3 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">Recepção</h3><p class="text-base font-normal text-gray-500 dark:text-gray-400">${weddingDetails.restaurantName}</p></li></ol></div>
-                        <!-- CORREÇÃO: Atalho para Galeria de Fotos adicionado -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <button id="manage-rsvp-button" class="bg-primary text-white font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all"><i class="fas fa-edit mr-2"></i>Gerenciar Confirmação</button>
                             <button data-view-target="gifts" class="quick-nav-button bg-secondary text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all"><i class="fas fa-gift mr-2"></i>Ver Lista de Presentes</button>
                             <button data-view-target="guestbook" class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><i class="fas fa-book-open mr-2"></i>Mural de Recados</button>
                             <button data-view-target="guest-photos" class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><i class="fas fa-camera-retro mr-2"></i>Galeria de Fotos</button>
+                            ${dressCodeButtonHTML}
                         </div>
                     </div>`;
             }
@@ -177,17 +164,38 @@ export function renderGuestbookMessages(messages) {
 export function renderGiftList(gifts, currentUser) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
+
+    const donationCardHTML = `
+        <div class="bg-white dark:bg-dark-card border-2 border-dashed dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all items-center text-center">
+            <div>
+                <i class="fas fa-hand-holding-heart text-4xl text-primary dark:text-dark-primary mb-4"></i>
+                <h3 class="font-semibold text-gray-800 dark:text-gray-200">Presente dos Noivos</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Sinta-se à vontade para nos presentear com qualquer valor para nossa lua de mel!</p>
+                <div class="flex items-center justify-center">
+                    <span class="text-lg font-bold text-gray-500 mr-2">R$</span>
+                    <input type="number" id="custom-gift-amount" min="10" step="1" placeholder="50,00" class="w-32 p-2 text-center text-lg font-bold border rounded dark:bg-gray-800 dark:border-gray-600">
+                </div>
+            </div>
+            <div class="mt-4 w-full">
+                <button id="present-custom-amount-btn" class="w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90"><i class="fas fa-qrcode mr-2"></i>Presentear com PIX</button>
+            </div>
+        </div>
+    `;
+
     if (gifts.length === 0) {
-        container.innerHTML = `<p class="col-span-full text-center text-gray-500">A nossa lista de presentes está a ser preparada com carinho. Volte em breve!</p>`;
+        container.innerHTML = donationCardHTML + `<p class="col-span-full text-center text-gray-500">A nossa lista de presentes está a ser preparada com carinho. Volte em breve!</p>`;
         return;
     }
-    container.innerHTML = gifts.map(gift => {
+
+    const giftCardsHTML = gifts.map(gift => {
         const isTaken = gift.isTaken;
         const isTakenByMe = isTaken && gift.takenById === currentUser.uid;
         const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl, 'w_400,h_300,c_fill,q_auto');
         const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor simbólico';
         return `<div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all ${isTaken && !isTakenByMe ? 'opacity-50' : ''}"><div><img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4"><h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3><p class="text-lg font-bold text-primary dark:text-dark-primary mt-2">${formattedPrice}</p><p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description || ''}</p></div><div class="mt-4">${isTaken ? (isTakenByMe ? `<button data-id="${gift.id}" aria-label="Desfazer escolha do presente ${gift.name}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>` : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`) : `<button data-id="${gift.id}" data-name="${gift.name}" data-price="${gift.price}" aria-label="Presentear com ${gift.name} via PIX" class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90"><i class="fas fa-qrcode mr-2"></i>Presentear com PIX</button>`}</div></div>`;
     }).join('');
+
+    container.innerHTML = donationCardHTML + giftCardsHTML;
 }
 
 function addFormValidation() {
@@ -309,3 +317,75 @@ export function showSocialSignupModal(keyData, onComplete) {
         onComplete({ guestNames, willAttendRestaurant });
     });
 }
+
+// ATUALIZADO: Mostra a paleta apenas para a função do usuário
+export function renderDressCodeModal(palettes, userRole) {
+    const container = document.getElementById('dress-code-content-container');
+    const userPalette = palettes ? palettes[userRole] : null;
+
+    if (!container || !userPalette || userPalette.length === 0) {
+        container.innerHTML = `<h2 class="text-2xl font-cursive text-center mb-4">Manual de Vestimentas</h2><p class="text-center text-gray-500">Nenhuma paleta de cores foi definida para sua função (${userRole}).</p>`;
+        toggleDressCodeModal(true);
+        return;
+    }
+
+    let content = `<h2 class="text-3xl font-cursive text-center mb-6">Manual de Vestimentas para ${userRole}</h2><div class="space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar p-2">`;
+    content += `<div><h3 class="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-300 text-center">Sua paleta de cores sugerida:</h3><div class="flex flex-wrap gap-4 justify-center">`;
+    userPalette.forEach(color => {
+        content += `<div class="text-center"><div class="w-20 h-20 rounded-full shadow-md border-4 border-white dark:border-gray-700" style="background-color: ${color};"></div><p class="text-xs mt-2 font-mono">${color}</p></div>`;
+    });
+    content += `</div></div></div>`;
+    container.innerHTML = content;
+    toggleDressCodeModal(true);
+}
+export function toggleDressCodeModal(show) { document.getElementById('dress-code-modal').classList.toggle('hidden', !show); }
+
+export function showTutorialModal(onFinish) {
+    const container = document.getElementById('tutorial-content-container');
+    const navContainer = document.getElementById('tutorial-nav');
+    if (!container || !navContainer) return;
+
+    const slides = [
+        { icon: 'fa-envelope-open-text', title: 'Bem-vindo(a)!', text: 'Este é o seu portal exclusivo para o nosso casamento. Vamos ver como tudo funciona?' },
+        { icon: 'fa-user-check', title: 'Cadastro e RSVP', text: 'Primeiro, use sua chave de acesso para se cadastrar. Depois, confirme sua presença e de seus acompanhantes na aba "Acesso" (que vira "Portal").' },
+        { icon: 'fa-gift', title: 'Presentes e Recados', text: 'Navegue pela nossa lista de presentes ou deixe uma mensagem de carinho no nosso mural de recados.' },
+        { icon: 'fa-camera-retro', title: 'Compartilhe os Momentos', text: 'No dia do evento, use a aba "Fotos" para compartilhar seus registros e participar da nossa caça ao tesouro fotográfica!' },
+        { icon: 'fa-trophy', title: 'Participe e Ganhe Pontos!', text: 'Suas interações no site, como enviar fotos e mensagens, geram pontos. Acompanhe o ranking na aba "Atividades"!' }
+    ];
+
+    let currentSlide = 0;
+
+    function renderSlide() {
+        const slide = slides[currentSlide];
+        container.innerHTML = `<div class="animate-fade-in"><i class="fas ${slide.icon} text-4xl text-primary dark:text-dark-primary mb-4"></i><h3 class="text-2xl font-serif mb-2">${slide.title}</h3><p class="text-gray-600 dark:text-gray-400">${slide.text}</p></div>`;
+        
+        const prevButton = currentSlide > 0 ? `<button id="tutorial-prev" class="py-2 px-4 bg-gray-200 dark:bg-gray-600 rounded">Anterior</button>` : `<div></div>`;
+        const nextButton = currentSlide < slides.length - 1 ? `<button id="tutorial-next" class="py-2 px-4 bg-primary text-white rounded">Próximo</button>` : `<button id="tutorial-finish" class="py-2 px-4 bg-green-600 text-white rounded">Entendi, vamos lá!</button>`;
+        
+        navContainer.innerHTML = `${prevButton}${nextButton}`;
+    }
+
+    function cleanup() {
+        toggleTutorialModal(false);
+        if (typeof onFinish === 'function') onFinish();
+        document.body.removeEventListener('click', tutorialClickHandler);
+    }
+
+    function tutorialClickHandler(e) {
+        if (e.target.id === 'tutorial-next') {
+            currentSlide++;
+            renderSlide();
+        } else if (e.target.id === 'tutorial-prev') {
+            currentSlide--;
+            renderSlide();
+        } else if (e.target.id === 'tutorial-finish') {
+            cleanup();
+        }
+    }
+
+    document.body.addEventListener('click', tutorialClickHandler);
+
+    renderSlide();
+    toggleTutorialModal(true);
+}
+export function toggleTutorialModal(show) { document.getElementById('tutorial-modal').classList.toggle('hidden', !show); }

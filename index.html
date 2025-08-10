@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nosso Casamento - Andressa & Alexandre</title>
+    <title id="page-title">Nosso Casamento</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
@@ -69,13 +69,27 @@
             <div id="rsvp-form-container"></div>
         </div>
     </div>
+    <!-- NOVO: Modal para Manual de Vestimentas -->
+    <div id="dress-code-modal" class="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center p-4 hidden">
+        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-lg w-full max-w-2xl p-6 relative">
+            <button id="close-dress-code-modal" aria-label="Fechar modal de paleta de cores" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fas fa-times fa-lg"></i></button>
+            <div id="dress-code-content-container"></div>
+        </div>
+    </div>
+    <!-- NOVO: Modal para Tutorial -->
+    <div id="tutorial-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-lg w-full max-w-md relative">
+            <div id="tutorial-content-container" class="text-center p-6"></div>
+            <div id="tutorial-nav" class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700"></div>
+        </div>
+    </div>
 
 
     <!-- Container Principal do Aplicativo -->
     <div id="app-container" class="flex flex-col h-screen opacity-0 transition-opacity duration-300">
         <header class="border-b border-gray-200 dark:border-gray-800 bg-light-card dark:bg-dark-card shadow-sm sticky top-0 z-30">
             <div class="flex items-center justify-between px-4 py-3 max-w-screen-lg mx-auto">
-                <div id="page-title" class="font-cursive text-2xl text-primary dark:text-dark-primary"></div>
+                <div id="page-title-header" class="font-cursive text-2xl text-primary dark:text-dark-primary"></div>
                 <div class="flex items-center space-x-4">
                     <div id="user-actions-container" class="flex items-center space-x-4"></div>
                     <button id="toggle-dark-mode" aria-label="Alternar modo de cor" class="text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-dark-primary"><i class="fas fa-moon dark:hidden"></i><i class="fas fa-sun hidden dark:block"></i></button>
@@ -84,7 +98,6 @@
         </header>
         <main class="flex-1 overflow-auto custom-scrollbar"><div id="main-content" class="max-w-screen-lg mx-auto px-4 py-6 pb-24"></div></main>
         <nav class="fixed bottom-0 left-0 right-0 bg-light-card dark:bg-dark-card border-t border-gray-200 dark:border-gray-800 shadow-lg">
-            <!-- CORREÇÃO: Layout da barra de navegação otimizado para mobile -->
             <div class="flex justify-around max-w-screen-lg mx-auto">
                 <button data-view="home" aria-label="Ir para Início" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-home text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Início</span>
@@ -95,7 +108,6 @@
                 <button data-view="guest-photos" aria-label="Ver Fotos" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-camera-retro text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Fotos</span>
                 </button>
-                <!-- Botão de Atividades com ID e escondido por padrão -->
                 <button id="activities-nav-button" data-view="activities" aria-label="Ver Atividades" class="nav-button flex-1 py-2 px-1 text-center hidden">
                     <i class="fas fa-star text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Atividades</span>
                 </button>
@@ -105,7 +117,6 @@
                 <button data-view="gifts" aria-label="Ver Lista de Presentes" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-gift text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Presentes</span>
                 </button>
-                <!-- Botão de Acesso com ID para texto dinâmico -->
                 <button id="rsvp-nav-button" data-view="rsvp" aria-label="Acessar área do convidado" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-envelope text-lg sm:text-xl"></i><span id="rsvp-nav-text" class="block text-[10px] sm:text-xs mt-1">Acesso</span>
                 </button>
