@@ -50,7 +50,7 @@ function showEditModal(title, formContent, onSubmit) {
     document.getElementById('edit-modal-title').textContent = title;
     const form = document.getElementById('edit-modal-form');
     form.innerHTML = formContent;
-    
+
     const handleSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(form);
@@ -61,7 +61,7 @@ function showEditModal(title, formContent, onSubmit) {
     form.addEventListener('submit', handleSubmit);
     document.getElementById('close-edit-modal').addEventListener('click', () => closeEditModal());
     modal.classList.remove('hidden');
-    
+
     const cancelButton = form.querySelector('.cancel-edit-btn');
     cancelButton.addEventListener('click', () => closeEditModal());
 }
@@ -160,38 +160,33 @@ export function renderDetailsEditor(details) {
 
     const weddingDateISO = getDateForInput(details.weddingDate).slice(0, 16);
     const rsvpDateISO = getDateForInput(details.rsvpDate).slice(0, 10);
-    
+
     const whatsappTemplate = details.whatsappMessageTemplate || `Olá, {nome_convidado}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, {nomes_casal}. {link_convite}`;
-    
-    const paletteGroups = details.dressCodePalettes || {
-        "Madrinhas": [], "Padrinhos": [], "Amigas da Noiva": [], "Amigos do Noivo": []
-    };
 
-    let paletteEditorHTML = '';
-    for (const group in paletteGroups) {
-        const colorsHTML = paletteGroups[group].map(color => `
-            <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${color};">
-                <button class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${color}" data-group="${group}">
-                    <i class="fas fa-times"></i>
-                </button>
+    const paletteEditorSection = `
+    <div class="border-t pt-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Paletas de Cores</h3>
+        <div id="palette-editor" class="space-y-6">${paletteEditorHTML}</div>
+        
+        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h4 class="text-md font-semibold text-blue-800 mb-3">Gerar PDFs das Paletas</h4>
+            <p class="text-sm text-blue-600 mb-4">Os convidados especiais (padrinhos, madrinhas, etc.) podem baixar PDFs personalizados com suas paletas de cores.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                ${Object.keys(paletteGroups).map(group => `
+                    <button id="preview-pdf-${group.toLowerCase().replace(/\s+/g, '-')}" 
+                            class="px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors flex items-center justify-center"
+                            data-role="${group}">
+                        <i class="fas fa-file-pdf mr-1"></i>
+                        ${group}
+                    </button>
+                `).join('')}
             </div>
-        `).join('');
+        </div>
+    </div>
+`;
+}
 
-        paletteEditorHTML += `
-            <div class="palette-group" data-group="${group}">
-                <h4 class="text-md font-semibold text-gray-600 mb-2">${group}</h4>
-                <div class="flex flex-wrap gap-3 items-center">
-                    <div class="palette-colors flex flex-wrap gap-3 items-center">${colorsHTML}</div>
-                    <div class="flex items-center gap-2">
-                         <input type="color" value="#cccccc" class="add-color-input w-10 h-10 p-0 border-none rounded-full cursor-pointer">
-                         <button type="button" class="add-color-btn bg-indigo-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-indigo-600" data-group="${group}"><i class="fas fa-plus"></i></button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    return `
+return `
         <div class="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto space-y-6">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Configurações Gerais</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -351,7 +346,7 @@ export function updateGuestsReport(usedKeys) {
     const listEl = document.getElementById('guests-report-list');
     const totalCountEl = document.getElementById('total-guests-count');
     if (!listEl || !totalCountEl) return { restaurantGuests: 0, ceremonyOnlyGuests: 0 };
-    
+
     let totalGuests = 0;
     let restaurantGuests = 0;
 
@@ -360,21 +355,21 @@ export function updateGuestsReport(usedKeys) {
         totalCountEl.textContent = '0';
         return { restaurantGuests: 0, ceremonyOnlyGuests: 0 };
     }
-    
+
     listEl.innerHTML = usedKeys.map(key => {
         totalGuests += key.allowedGuests || 1;
         if (key.willAttendRestaurant) restaurantGuests += key.allowedGuests || 1;
-        
+
         const usedDate = key.usedAt ? key.usedAt.toDate().toLocaleString('pt-BR') : 'N/A';
         const peopleText = key.allowedGuests > 1 ? `${key.allowedGuests} pessoas` : `${key.allowedGuests} pessoa`;
         const restaurantIcon = key.willAttendRestaurant ? `<i class="fas fa-utensils text-green-500" title="Irá ao restaurante"></i>` : `<i class="fas fa-church text-gray-400" title="Apenas cerimônia"></i>`;
 
         return `<div class="p-3 border-b hover:bg-gray-50"><div class="flex justify-between items-start cursor-pointer report-item" data-id="${key.id}"><div><p class="font-semibold">${key.guestName}</p><p class="text-sm text-gray-600">${key.usedByEmail || ''}</p></div><div class="flex items-center space-x-3"><span class="text-sm font-bold text-gray-700">${peopleText}</span>${restaurantIcon}</div></div><p class="text-xs text-gray-400 mt-1">Cadastrado em: ${usedDate}</p><div id="guest-names-list-${key.id}" class="hidden mt-2 pl-4 border-l-2 border-gray-200"><p class="text-xs text-gray-500">Carregando nomes...</p></div></div>`;
     }).join('');
-    
+
     totalCountEl.textContent = totalGuests;
     const ceremonyOnlyGuests = totalGuests - restaurantGuests;
-    
+
     return { restaurantGuests, ceremonyOnlyGuests };
 }
 
