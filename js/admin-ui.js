@@ -147,33 +147,57 @@ export function setActiveSidebarLink(tabName) {
 
 // --- Funções de Renderização de Conteúdo das Abas ---
 
-// ATUALIZADO: Lida com objetos de data do Firestore e do JS
 export function renderDetailsEditor(details) {
-    // Função auxiliar para converter Timestamp do Firestore ou manter Date do JS
     const getDateForInput = (dateField) => {
         if (!dateField) return '';
-        // Se for um timestamp do Firestore, converte para Date
         const date = dateField.toDate ? dateField.toDate() : dateField;
-        // Retorna no formato YYYY-MM-DDTHH:MM para o input datetime-local
-        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString();
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    };
+    
+    const getDateOnlyForInput = (dateField) => {
+        if (!dateField) return '';
+        const date = dateField.toDate ? dateField.toDate() : dateField;
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
     };
 
-    const weddingDateISO = getDateForInput(details.weddingDate).slice(0, 16);
-    const rsvpDateISO = getDateForInput(details.rsvpDate).slice(0, 10);
+    const weddingDateISO = getDateForInput(details.weddingDate);
+    const rsvpDateISO = getDateOnlyForInput(details.rsvpDate);
 
     const whatsappTemplate = details.whatsappMessageTemplate || `Olá, {nome_convidado}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, {nomes_casal}. {link_convite}`;
 
-    const paletteEditorSection = `
-    <div class="border-t pt-4">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Paletas de Cores</h3>
-        <div id="palette-editor" class="space-y-6">${paletteEditorHTML}</div>
-        
+    const paletteGroups = {
+        'Padrinhos': details.dressCodePalettes?.Padrinhos || [],
+        'Madrinhas': details.dressCodePalettes?.Madrinhas || [],
+        'Amigos do Noivo': details.dressCodePalettes?.['Amigos do Noivo'] || [],
+        'Amigas da Noiva': details.dressCodePalettes?.['Amigas da Noiva'] || [],
+    };
+
+    const paletteEditorHTML = Object.entries(paletteGroups).map(([group, colors]) => `
+        <div class="palette-group border-t pt-4" data-group="${group}">
+            <h4 class="text-md font-semibold text-gray-700 mb-3">${group}</h4>
+            <div class="flex items-center gap-2 mb-3">
+                <input type="color" class="w-10 h-10 p-0 border-none rounded-md" value="#88aabb">
+                <button type="button" class="add-color-btn px-3 py-2 bg-blue-500 text-white text-sm rounded" data-group="${group}">Adicionar Cor</button>
+            </div>
+            <div class="palette-colors flex flex-wrap gap-2">
+                ${colors.map(color => `
+                    <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${color};">
+                        <button type="button" class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${color}" data-group="${group}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    const pdfSectionHTML = `
         <div class="mt-6 p-4 bg-blue-50 rounded-lg">
             <h4 class="text-md font-semibold text-blue-800 mb-3">Gerar PDFs das Paletas</h4>
-            <p class="text-sm text-blue-600 mb-4">Os convidados especiais (padrinhos, madrinhas, etc.) podem baixar PDFs personalizados com suas paletas de cores.</p>
+            <p class="text-sm text-blue-600 mb-4">Os convidados especiais podem baixar PDFs personalizados com suas paletas de cores.</p>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 ${Object.keys(paletteGroups).map(group => `
-                    <button id="preview-pdf-${group.toLowerCase().replace(/\s+/g, '-')}" 
+                    <button type="button" id="preview-pdf-${group.toLowerCase().replace(/\s+/g, '-')}" 
                             class="px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors flex items-center justify-center"
                             data-role="${group}">
                         <i class="fas fa-file-pdf mr-1"></i>
@@ -182,11 +206,9 @@ export function renderDetailsEditor(details) {
                 `).join('')}
             </div>
         </div>
-    </div>
-`;
-}
+    `;
 
-return `
+    return `
         <div class="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto space-y-6">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Configurações Gerais</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -205,6 +227,7 @@ return `
             <div class="border-t pt-4">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Paletas de Cores</h3>
                 <div id="palette-editor" class="space-y-6">${paletteEditorHTML}</div>
+                ${pdfSectionHTML}
             </div>
 
             <div class="border-t pt-4">
@@ -217,6 +240,7 @@ return `
             <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
         </div>`;
 }
+
 
 export function renderKeyManager() {
     return `

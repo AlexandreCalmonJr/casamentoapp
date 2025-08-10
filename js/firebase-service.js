@@ -1,4 +1,3 @@
-
 // js/firebase-service.js
 
 import { cloudinaryConfig, firebaseConfig } from './config.js';
@@ -7,6 +6,11 @@ firebase.initializeApp(firebaseConfig);
 
 export const auth = firebase.auth();
 export const db = firebase.firestore();
+
+// --- Funções de Autenticação ---
+export function loginUser(email, password) {
+    return auth.signInWithEmailAndPassword(email, password);
+}
 
 // --- Funções de Login Social ---
 export function signInWithGoogle() {
@@ -46,9 +50,9 @@ export async function incrementEngagementScore(user, type, points) {
             });
         } else {
             const data = doc.data();
-            const newPhotoCount = data.photoCount + (type === 'photo' ? 1 : 0);
-            const newGuestbookCount = data.guestbookCount + (type === 'guestbook' ? 1 : 0);
-            const newGiftCount = data.giftCount + (type === 'gift' ? 1 : 0);
+            const newPhotoCount = (data.photoCount || 0) + (type === 'photo' ? 1 : 0);
+            const newGuestbookCount = (data.guestbookCount || 0) + (type === 'guestbook' ? 1 : 0);
+            const newGiftCount = (data.giftCount || 0) + (type === 'gift' ? 1 : 0);
             const newTotalScore = (data.totalScore || 0) + points;
 
             transaction.update(engagementRef, {
@@ -85,7 +89,12 @@ export async function getWeddingDetails() {
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
-            return { ...data, weddingDate: data.weddingDate.toDate(), rsvpDate: data.rsvpDate.toDate() };
+            // Garante que as datas são objetos Date do JS
+            return { 
+                ...data, 
+                weddingDate: data.weddingDate.toDate(), 
+                rsvpDate: data.rsvpDate.toDate() 
+            };
         }
         return null;
     } catch (error) {
@@ -102,58 +111,34 @@ export async function validateAccessKey(key) {
     return { isValid: true, isUsed: docData.isUsed, docId: docSnap.id, data: docData };
 }
 
-// ATUALIZADO: Busca pelo UID do usuário em vez do email
 export async function findAccessKeyForUser(userId) {
     try {
         const currentUser = auth.currentUser;
         if (!currentUser) return null;
 
-        // Primeiro, tenta encontrar pela chave usada (por userId)
         const snapshot = await db.collection('accessKeys')
-            .where('isUsed', '==', true)
             .where('usedByUserId', '==', userId)
             .limit(1)
             .get();
 
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
-            return {
-                key: doc.id,
-                data: doc.data()
-            };
+            return { key: doc.id, data: doc.data() };
         }
-
-        // Se não encontrou por userId, tenta por email
+        
+        // Fallback para email, caso a migração de dados seja necessária
         const emailSnapshot = await db.collection('accessKeys')
-            .where('isUsed', '==', true)
             .where('usedByEmail', '==', currentUser.email)
             .limit(1)
             .get();
 
         if (!emailSnapshot.empty) {
             const doc = emailSnapshot.docs[0];
-            return {
-                key: doc.id,
-                data: doc.data()
-            };
+            // Opcional: Atualizar o documento com o userId para futuras buscas
+            await doc.ref.update({ usedByUserId: userId });
+            return { key: doc.id, data: doc.data() };
         }
 
-        // Se ainda não encontrou, procura na coleção de usuários
-        const userDoc = await db.collection('users').doc(userId).get();
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            if (userData.accessKey) {
-                const keyDoc = await db.collection('accessKeys').doc(userData.accessKey).get();
-                if (keyDoc.exists) {
-                    return {
-                        key: keyDoc.id,
-                        data: keyDoc.data()
-                    };
-                }
-            }
-        }
-
-        console.log('Nenhuma chave de acesso encontrada para o usuário:', userId);
         return null;
     } catch (error) {
         console.error('Erro ao buscar chave de acesso do usuário:', error);
@@ -161,12 +146,10 @@ export async function findAccessKeyForUser(userId) {
     }
 }
 
-// ATUALIZADO: Salva o UID do usuário no documento da chave de acesso
 export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
     try {
         let currentUser = user;
         
-        // Se não há usuário (cadastro por email/senha)
         if (!currentUser && password) {
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             currentUser = userCredential.user;
@@ -177,16 +160,14 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
             throw new Error('Falha ao criar/obter usuário');
         }
 
-        // Atualiza a chave de acesso com informações completas do usuário
         await db.collection('accessKeys').doc(keyDocId).update({
             isUsed: true,
             usedByEmail: currentUser.email,
-            usedByUserId: currentUser.uid, // Campo correto
+            usedByUserId: currentUser.uid,
             usedAt: firebase.firestore.FieldValue.serverTimestamp(),
             willAttendRestaurant: willAttendRestaurant
         });
 
-        // Salva os nomes dos convidados
         const batch = db.batch();
         guestNames.forEach((guestName, index) => {
             const guestRef = db.collection('accessKeys').doc(keyDocId).collection('guestNames').doc(`guest_${index}`);
@@ -194,7 +175,6 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
         });
         await batch.commit();
 
-        // Cria/atualiza documento do usuário para referência rápida
         await db.collection('users').doc(currentUser.uid).set({
             name: name,
             email: currentUser.email,
@@ -209,58 +189,31 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
         throw error;
     }
 }
+
 export async function updateRsvpDetails(keyId, { guestNames, willAttendRestaurant }) {
     try {
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error('Usuário não autenticado');
-        }
+        if (!currentUser) throw new Error('Usuário não autenticado');
 
-        // Atualiza os detalhes principais da chave
         await db.collection('accessKeys').doc(keyId).update({
             willAttendRestaurant: willAttendRestaurant,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        // Remove nomes antigos e adiciona os novos
         const guestNamesCollection = db.collection('accessKeys').doc(keyId).collection('guestNames');
-        
-        // Primeiro, remove todos os nomes existentes
         const existingNames = await guestNamesCollection.get();
         const batch = db.batch();
         
-        existingNames.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        // Adiciona os novos nomes
+        existingNames.forEach(doc => batch.delete(doc.ref));
         guestNames.forEach((guestName, index) => {
             const guestRef = guestNamesCollection.doc(`guest_${index}`);
             batch.set(guestRef, { name: guestName, order: index });
         });
 
         await batch.commit();
-        
-        console.log('RSVP atualizado com sucesso');
     } catch (error) {
         console.error('Erro ao atualizar RSVP:', error);
         throw error;
-    }
-}
-
-export async function userHasAccessToKey(keyId, userId) {
-    try {
-        const keyDoc = await db.collection('accessKeys').doc(keyId).get();
-        if (!keyDoc.exists) return false;
-        
-        const keyData = keyDoc.data();
-        const currentUser = auth.currentUser;
-        
-        return keyData.usedByUserId === userId || 
-               keyData.usedByEmail === currentUser?.email;
-    } catch (error) {
-        console.error('Erro ao verificar permissão da chave:', error);
-        return false;
     }
 }
 
@@ -288,7 +241,7 @@ export async function uploadPhoto(file, user, onProgress) {
     try {
         const response = await fetch(url, { method: 'POST', body: formData });
         onProgress(75);
-        if (!response.ok) throw new Error('Upload to Cloudinary failed');
+        if (!response.ok) throw new Error('Upload para Cloudinary falhou');
         const data = await response.json();
         await db.collection('guestPhotos').add({
             imageUrl: data.secure_url,
