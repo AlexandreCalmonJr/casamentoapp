@@ -47,6 +47,7 @@ function showShareModal(guestName, key, allowedGuests, phone) {
         const cleanPhone = phone.replace(/\D/g, '');
         const message = state.weddingDetails.whatsappMessageTemplate
             .replace('{nome_convidado}', guestName)
+            .replace('{nomes_casal}', state.weddingDetails.coupleNames)
             .replace('{link_convite}', fullLink);
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
         const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
@@ -69,6 +70,17 @@ function handleGoogleLogin() {
 async function handleSaveDetails(event) {
     const button = event.currentTarget;
     UI.setButtonLoading(button, true);
+
+    const dressCodePalettes = {};
+    document.querySelectorAll('.palette-group').forEach(groupEl => {
+        const groupName = groupEl.dataset.group;
+        const colors = [];
+        groupEl.querySelectorAll('.delete-color-btn').forEach(btn => {
+            colors.push(btn.dataset.color);
+        });
+        dressCodePalettes[groupName] = colors;
+    });
+
     const updatedDetails = {
         coupleNames: document.getElementById('form-couple-names').value,
         weddingDate: new Date(document.getElementById('form-wedding-date').value),
@@ -80,21 +92,24 @@ async function handleSaveDetails(event) {
         restaurantPriceInfo: document.getElementById('form-restaurant-price').value,
         restaurantMapsLink: document.getElementById('form-restaurant-mapslink').value,
         pixKey: document.getElementById('form-pix-key').value.trim(),
-        whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim()
+        whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim(),
+        dressCodePalettes: dressCodePalettes
     };
+
     await db.collection('siteConfig').doc('details').update(updatedDetails);
+    // ATUALIZA O ESTADO LOCAL COM OS NOVOS DADOS PARA EVITAR RECARREGAMENTO
     state.weddingDetails = { ...state.weddingDetails, ...updatedDetails };
+    
     UI.setButtonLoading(button, false);
     const successMsg = document.getElementById('details-success');
     successMsg.classList.remove('hidden');
     setTimeout(() => successMsg.classList.add('hidden'), 3000);
 }
 
-// ATUALIZADO: Lê o valor do 'invite-type'
 async function handleGenerateKey() {
     const guestName = document.getElementById('guest-name').value.trim();
     const guestPhone = document.getElementById('guest-phone').value.trim();
-    const inviteType = document.getElementById('invite-type').value;
+    const guestRole = document.getElementById('guest-role').value;
     const allowedGuests = parseInt(document.getElementById('allowed-guests').value, 10);
     const generateBtn = document.getElementById('generate-key-button');
 
@@ -106,8 +121,12 @@ async function handleGenerateKey() {
     UI.setButtonLoading(generateBtn, true);
     const newKey = 'AS' + Math.random().toString(36).substring(2, 10).toUpperCase();
     await db.collection('accessKeys').doc(newKey).set({
-        guestName, guestPhone, inviteType, allowedGuests,
-        isUsed: false, usedByEmail: null,
+        guestName,
+        guestPhone,
+        role: guestRole,
+        allowedGuests,
+        isUsed: false,
+        usedByEmail: null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         willAttendRestaurant: null
     });
@@ -222,6 +241,34 @@ function cleanupListeners() {
     }
 }
 
+function setupPaletteEditorListeners() {
+    const editor = document.getElementById('palette-editor');
+    if (!editor) return;
+
+    editor.addEventListener('click', (e) => {
+        if (e.target.closest('.add-color-btn')) {
+            const button = e.target.closest('.add-color-btn');
+            const group = button.dataset.group;
+            const colorInput = button.previousElementSibling;
+            const newColor = colorInput.value;
+            const colorsContainer = editor.querySelector(`.palette-group[data-group="${group}"] .palette-colors`);
+            
+            const newColorHTML = `
+                <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${newColor};">
+                    <button class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${newColor}" data-group="${group}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            colorsContainer.insertAdjacentHTML('beforeend', newColorHTML);
+        }
+
+        if (e.target.closest('.delete-color-btn')) {
+            e.target.closest('.relative.group').remove();
+        }
+    });
+}
+
 async function loadTab(tabName) {
     state.currentTab = tabName;
     UI.setActiveSidebarLink(tabName);
@@ -232,17 +279,11 @@ async function loadTab(tabName) {
     if (tabName === 'details') {
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
+        setupPaletteEditorListeners();
     } else if (tabName === 'keys') {
         DOMElements.tabContent.innerHTML = UI.renderKeyManager();
         document.getElementById('generate-key-button').addEventListener('click', handleGenerateKey);
-        // ATUALIZADO: Listener para o select de tipo de convite
-        document.getElementById('invite-type').addEventListener('change', (e) => {
-            const allowedGuestsInput = document.getElementById('allowed-guests');
-            const isIndividual = e.target.value === 'individual';
-            allowedGuestsInput.readOnly = isIndividual;
-            if (isIndividual) allowedGuestsInput.value = 1;
-        });
-
+        
         const searchInput = document.getElementById('search-keys-input');
         const renderKeys = (docs) => {
             const searchTerm = searchInput.value.toLowerCase();

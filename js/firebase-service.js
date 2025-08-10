@@ -25,14 +25,6 @@ export function signInWithApple() {
 }
 
 // --- Funções de Gamificação ---
-
-/**
- * Incrementa a pontuação de engajamento de um usuário.
- * Usa uma transação para garantir a consistência dos dados.
- * @param {firebase.User} user - O objeto do usuário autenticado.
- * @param {('photo'|'guestbook'|'gift')} type - O tipo de interação.
- * @param {number} points - A quantidade de pontos a ser adicionada.
- */
 export async function incrementEngagementScore(user, type, points) {
     if (!user) return;
     const engagementRef = db.collection('guestEngagement').doc(user.uid);
@@ -41,7 +33,6 @@ export async function incrementEngagementScore(user, type, points) {
         const doc = await transaction.get(engagementRef);
         
         if (!doc.exists) {
-            // Se o usuário não tem registro de engajamento, cria um novo
             transaction.set(engagementRef, {
                 userId: user.uid,
                 userName: user.displayName,
@@ -50,10 +41,9 @@ export async function incrementEngagementScore(user, type, points) {
                 guestbookCount: type === 'guestbook' ? 1 : 0,
                 giftCount: type === 'gift' ? 1 : 0,
                 totalScore: points,
-                badges: [] // Emblemas serão adicionados aqui
+                badges: []
             });
         } else {
-            // Se já existe, atualiza os contadores e a pontuação
             const data = doc.data();
             const newPhotoCount = data.photoCount + (type === 'photo' ? 1 : 0);
             const newGuestbookCount = data.guestbookCount + (type === 'guestbook' ? 1 : 0);
@@ -65,7 +55,6 @@ export async function incrementEngagementScore(user, type, points) {
                 guestbookCount: newGuestbookCount,
                 giftCount: newGiftCount,
                 totalScore: newTotalScore,
-                // Atualiza o nome e a foto caso o usuário mude no perfil social
                 userName: user.displayName,
                 photoURL: user.photoURL,
             });
@@ -73,15 +62,10 @@ export async function incrementEngagementScore(user, type, points) {
     });
 }
 
-/**
- * Escuta as atualizações do ranking de engajamento em tempo real.
- * @param {function} onUpdate - Callback que recebe a lista de usuários do ranking.
- * @returns {function} - Função para cancelar a inscrição (unsubscribe).
- */
 export function listenToRanking(onUpdate) {
     return db.collection('guestEngagement')
         .orderBy('totalScore', 'desc')
-        .limit(20) // Limita aos 20 melhores para performance
+        .limit(20)
         .onSnapshot(snapshot => {
             const ranking = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             onUpdate(ranking);
@@ -92,7 +76,7 @@ export function listenToRanking(onUpdate) {
 }
 
 
-// --- Funções do Casamento (Existentes) ---
+// --- Funções do Casamento ---
 
 export async function getWeddingDetails() {
     try {
@@ -117,9 +101,10 @@ export async function validateAccessKey(key) {
     return { isValid: true, isUsed: docData.isUsed, docId: docSnap.id, data: docData };
 }
 
-export async function findAccessKeyForUser(email) {
+// ATUALIZADO: Busca pelo UID do usuário em vez do email
+export async function findAccessKeyForUser(uid) {
     try {
-        const snapshot = await db.collection('accessKeys').where('usedByEmail', '==', email).limit(1).get();
+        const snapshot = await db.collection('accessKeys').where('usedByUID', '==', uid).limit(1).get();
         if (snapshot.empty) return null;
         const doc = snapshot.docs[0];
         return { key: doc.id, data: doc.data() };
@@ -133,6 +118,7 @@ export function loginUser(email, password) {
     return auth.signInWithEmailAndPassword(email, password);
 }
 
+// ATUALIZADO: Salva o UID do usuário no documento da chave de acesso
 export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
     let userCredential;
     if (socialProvider && user) {
@@ -152,6 +138,7 @@ export async function signupUser({ name, email, password, keyDocId, guestNames, 
     await keyRef.update({
         isUsed: true,
         usedByEmail: userCredential.user.email,
+        usedByUID: userCredential.user.uid, // NOVO CAMPO
         usedAt: firebase.firestore.FieldValue.serverTimestamp(),
         willAttendRestaurant: willAttendRestaurant,
         authMethod: socialProvider || 'email'
@@ -237,12 +224,11 @@ export function listenToGiftList(onGiftsUpdate) {
     );
 }
 
-// ATUALIZADO: Salva o ID do usuário que deu o presente
 export function markGiftAsTaken(giftId, user) {
     return db.collection('giftList').doc(giftId).update({
         isTaken: true,
         takenBy: user.displayName,
-        takenById: user.uid // Novo campo para rastrear o ID
+        takenById: user.uid
     });
 }
 

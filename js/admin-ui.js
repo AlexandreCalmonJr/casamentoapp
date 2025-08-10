@@ -147,18 +147,57 @@ export function setActiveSidebarLink(tabName) {
 
 // --- Funções de Renderização de Conteúdo das Abas ---
 
+// ATUALIZADO: Lida com objetos de data do Firestore e do JS
 export function renderDetailsEditor(details) {
-    const weddingDate = new Date(details.weddingDate.toDate()).toISOString().slice(0, 16);
-    const rsvpDate = new Date(details.rsvpDate.toDate()).toISOString().slice(0, 10);
-    const whatsappTemplate = details.whatsappMessageTemplate || `Olá, {nome_convidado}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, Alexandre & Andressa. {link_convite}`;
+    // Função auxiliar para converter Timestamp do Firestore ou manter Date do JS
+    const getDateForInput = (dateField) => {
+        if (!dateField) return '';
+        // Se for um timestamp do Firestore, converte para Date
+        const date = dateField.toDate ? dateField.toDate() : dateField;
+        // Retorna no formato YYYY-MM-DDTHH:MM para o input datetime-local
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString();
+    };
+
+    const weddingDateISO = getDateForInput(details.weddingDate).slice(0, 16);
+    const rsvpDateISO = getDateForInput(details.rsvpDate).slice(0, 10);
+    
+    const whatsappTemplate = details.whatsappMessageTemplate || `Olá, {nome_convidado}! ❤️ Com muita alegria, estamos enviando o convite digital para o nosso casamento. Por favor, acesse o link abaixo para confirmar sua presença e encontrar todos os detalhes do nosso grande dia. Mal podemos esperar para celebrar com você! Com carinho, {nomes_casal}. {link_convite}`;
+    
+    const paletteGroups = details.dressCodePalettes || {
+        "Madrinhas": [], "Padrinhos": [], "Amigas da Noiva": [], "Amigos do Noivo": []
+    };
+
+    let paletteEditorHTML = '';
+    for (const group in paletteGroups) {
+        const colorsHTML = paletteGroups[group].map(color => `
+            <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${color};">
+                <button class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${color}" data-group="${group}">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+
+        paletteEditorHTML += `
+            <div class="palette-group" data-group="${group}">
+                <h4 class="text-md font-semibold text-gray-600 mb-2">${group}</h4>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <div class="palette-colors flex flex-wrap gap-3 items-center">${colorsHTML}</div>
+                    <div class="flex items-center gap-2">
+                         <input type="color" value="#cccccc" class="add-color-input w-10 h-10 p-0 border-none rounded-full cursor-pointer">
+                         <button type="button" class="add-color-btn bg-indigo-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-indigo-600" data-group="${group}"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     return `
         <div class="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto space-y-6">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Configurações Gerais</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div><label class="block text-sm font-medium">Nomes do Casal</label><input type="text" id="form-couple-names" value="${details.coupleNames || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDate}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDate}" class="w-full mt-1 p-2 border rounded"></div>
+                <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDateISO}" class="w-full mt-1 p-2 border rounded"></div>
+                <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDateISO}" class="w-full mt-1 p-2 border rounded"></div>
                 <div><label class="block text-sm font-medium">Local da Cerimônia</label><input type="text" id="form-venue" value="${details.venue || ''}" class="w-full mt-1 p-2 border rounded"></div>
                 <div><label class="block text-sm font-medium">Dress Code</label><input type="text" id="form-dress-code" value="${details.dressCode || ''}" class="w-full mt-1 p-2 border rounded"></div>
                 <div><label class="block text-sm font-medium">Nome do Restaurante</label><input type="text" id="form-restaurant-name" value="${details.restaurantName || ''}" class="w-full mt-1 p-2 border rounded"></div>
@@ -166,18 +205,24 @@ export function renderDetailsEditor(details) {
                 <div><label class="block text-sm font-medium">Informação de Valor</label><input type="text" id="form-restaurant-price" value="${details.restaurantPriceInfo || ''}" class="w-full mt-1 p-2 border rounded"></div>
                 <div class="md:col-span-2"><label class="block text-sm font-medium">Link do Google Maps</label><input type="url" id="form-restaurant-mapslink" value="${details.restaurantMapsLink || ''}" class="w-full mt-1 p-2 border rounded"></div>
                 <div class="md:col-span-2"><label class="block text-sm font-medium">Sua Chave PIX</label><input type="text" id="form-pix-key" value="${details.pixKey || ''}" class="w-full mt-1 p-2 border rounded" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium">Modelo de Mensagem para WhatsApp</label>
-                    <textarea id="form-whatsapp-template" class="w-full mt-1 p-2 border rounded" rows="5">${whatsappTemplate}</textarea>
-                    <p class="text-xs text-gray-500 mt-1">Use {nome_convidado} e {link_convite} para personalização.</p>
-                </div>
             </div>
+            
+            <div class="border-t pt-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Paletas de Cores</h3>
+                <div id="palette-editor" class="space-y-6">${paletteEditorHTML}</div>
+            </div>
+
+            <div class="border-t pt-4">
+                <label class="block text-sm font-medium">Modelo de Mensagem para WhatsApp</label>
+                <textarea id="form-whatsapp-template" class="w-full mt-1 p-2 border rounded" rows="5">${whatsappTemplate}</textarea>
+                <p class="text-xs text-gray-500 mt-1">Use {nome_convidado}, {nomes_casal} e {link_convite} para personalização.</p>
+            </div>
+
             <button id="save-all-details-button" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700">Salvar Todas as Alterações</button>
             <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
         </div>`;
 }
 
-// ATUALIZADO: Adicionado o seletor de Tipo de Convite
 export function renderKeyManager() {
     return `
         <h2 class="text-2xl font-bold text-gray-800 mb-6">Gerenciador de Convites</h2>
@@ -188,10 +233,13 @@ export function renderKeyManager() {
                     <div><label class="block text-sm font-medium">Nome do Convidado (ou Família)</label><input type="text" id="guest-name" class="w-full mt-1 p-2 border rounded" placeholder="Ex: Família Silva"></div>
                     <div><label class="block text-sm font-medium">Telefone (com DDI e DDD)</label><input type="tel" id="guest-phone" class="w-full mt-1 p-2 border rounded" placeholder="Ex: 5571999998888"></div>
                     <div>
-                        <label class="block text-sm font-medium">Tipo de Convite</label>
-                        <select id="invite-type" class="w-full mt-1 p-2 border rounded bg-white">
-                            <option value="individual">Individual</option>
-                            <option value="family">Família</option>
+                        <label class="block text-sm font-medium">Função do Convidado</label>
+                        <select id="guest-role" class="w-full mt-1 p-2 border rounded bg-white">
+                            <option value="Convidado">Convidado(a)</option>
+                            <option value="Padrinho">Padrinho</option>
+                            <option value="Madrinha">Madrinha</option>
+                            <option value="Amigo do Noivo">Amigo do Noivo</option>
+                            <option value="Amiga da Noiva">Amiga da Noiva</option>
                         </select>
                     </div>
                     <div>
@@ -279,11 +327,15 @@ export function updateKeysList(keys) {
         const usedClass = key.isUsed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
         const usedText = key.isUsed ? `Sim` : 'Não';
         const peopleText = key.allowedGuests > 1 ? `${key.allowedGuests} pessoas` : `${key.allowedGuests} pessoa`;
+        const roleText = key.role && key.role !== 'Convidado' ? `<span class="text-xs font-semibold text-indigo-600">${key.role}</span>` : '';
+
         return `
             <div class="p-3 border-b flex justify-between items-center hover:bg-gray-50">
                 <div>
-                    <p class="font-semibold">${key.guestName} <span class="text-xs font-normal text-gray-500">(${peopleText})</span></p>
-                    <p class="text-sm font-mono text-gray-600">${key.id}</p> ${key.isUsed ? `<p class="text-xs text-gray-500">Usado por: ${key.usedByEmail}</p>` : ''}
+                    <p class="font-semibold">${key.guestName} ${roleText}</p>
+                    <p class="text-sm text-gray-500">${peopleText}</p>
+                    <p class="text-sm font-mono text-gray-600">${key.id}</p>
+                    ${key.isUsed ? `<p class="text-xs text-gray-500">Usado por: ${key.usedByEmail}</p>` : ''}
                 </div>
                 <div class="flex items-center space-x-2">
                     <span class="text-xs font-medium px-2 py-1 rounded-full ${usedClass}">Utilizado: ${usedText}</span>

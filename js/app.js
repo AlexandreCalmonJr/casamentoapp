@@ -281,6 +281,16 @@ function setupViewSpecificListeners() {
                 } finally { UI.setButtonLoading(button, false); }
             }));
             UI.initializeGiftEventListeners(appState.weddingDetails, appState.currentUser);
+            document.getElementById('present-custom-amount-btn')?.addEventListener('click', () => {
+                const amountInput = document.getElementById('custom-gift-amount');
+                const amount = parseFloat(amountInput.value);
+                if (isNaN(amount) || amount <= 0) {
+                    UI.showToast('Por favor, insira um valor válido.', 'error');
+                    return;
+                }
+                const customGift = { id: 'custom', name: 'Presente Especial', price: amount };
+                UI.renderPixModal(customGift, appState.weddingDetails);
+            });
         });
     }
     
@@ -303,6 +313,13 @@ function setupViewSpecificListeners() {
             UI.renderRsvpManagementModal(keyData, existingNames, handleRsvpUpdate);
         });
         document.querySelectorAll('.quick-nav-button').forEach(btn => btn.addEventListener('click', (e) => handleNavigation(e.currentTarget.dataset.viewTarget)));
+        
+        document.getElementById('dress-code-button')?.addEventListener('click', () => {
+            const userRole = appState.accessKeyInfo?.data?.role;
+            if (userRole) {
+                UI.renderDressCodeModal(appState.weddingDetails.dressCodePalettes, userRole);
+            }
+        });
     }
 }
 
@@ -311,33 +328,26 @@ function renderCurrentView() {
     setupViewSpecificListeners();
 }
 
-// ATUALIZADO: Esta função agora também controla a barra de navegação
+// ATUALIZADO: Lógica de busca de dados do usuário simplificada e corrigida
 async function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
     const activitiesButton = document.getElementById('activities-nav-button');
     const rsvpNavText = document.getElementById('rsvp-nav-text');
 
-    // Controla a visibilidade dos botões da barra de navegação
-    if (activitiesButton) {
-        if (user) {
-            activitiesButton.classList.remove('hidden');
-        } else {
-            activitiesButton.classList.add('hidden');
-        }
-    }
-    if (rsvpNavText) {
-        rsvpNavText.textContent = user ? 'Portal' : 'Acesso';
-    }
+    if (activitiesButton) activitiesButton.classList.toggle('hidden', !user);
+    if (rsvpNavText) rsvpNavText.textContent = user ? 'Portal' : 'Acesso';
 
     if (!container) return;
 
-    // Lógica para a área do usuário no cabeçalho (header)
-    if (user && !appState.accessKeyInfo) {
-        const keyInfo = await Firebase.findAccessKeyForUser(user.email);
-        if (keyInfo) appState.accessKeyInfo = keyInfo;
-    } else if (!user) {
-        appState.accessKeyInfo = null;
+    // Lógica centralizada para buscar/limpar dados do convite
+    if (user) {
+        const keyInfo = await Firebase.findAccessKeyForUser(user.uid);
+        appState.accessKeyInfo = keyInfo; // Define a informação, seja ela encontrada ou nula
+    } else {
+        appState.accessKeyInfo = null; // Limpa a informação no logout
     }
+
+    // Lógica para renderizar o cabeçalho
     container.innerHTML = ''; 
     if (user) {
         const welcomeText = document.createElement('span');
@@ -368,6 +378,8 @@ function setupModalListeners() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     document.getElementById('close-pix-modal').addEventListener('click', () => UI.togglePixModal(false));
     document.getElementById('close-rsvp-modal')?.addEventListener('click', () => UI.toggleRsvpModal(false));
+    document.getElementById('close-dress-code-modal').addEventListener('click', () => UI.toggleDressCodeModal(false));
+
     document.getElementById('pix-modal').addEventListener('click', async (e) => {
         if (e.target.closest('#copy-pix-button')) {
             const input = document.getElementById('pix-copy-paste');
@@ -380,7 +392,9 @@ function setupModalListeners() {
             const giftId = confirmButton.dataset.id;
             UI.setButtonLoading(confirmButton, true);
             try {
-                await Firebase.markGiftAsTaken(giftId, appState.currentUser);
+                if (giftId !== 'custom') {
+                    await Firebase.markGiftAsTaken(giftId, appState.currentUser);
+                }
                 await Firebase.incrementEngagementScore(appState.currentUser, 'gift', 25);
                 UI.togglePixModal(false);
                 UI.showToast('Obrigado pelo seu presente! +25 pontos!', 'success');
@@ -409,9 +423,11 @@ async function initApp() {
         UI.initToast();
         document.getElementById('loading-title').textContent = appState.weddingDetails.coupleNames;
         document.getElementById('page-title').textContent = appState.weddingDetails.coupleNames;
+        document.getElementById('page-title-header').textContent = appState.weddingDetails.coupleNames;
         initializeDarkMode();
         setupNavListeners();
         setupModalListeners();
+        
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
@@ -420,21 +436,38 @@ async function initApp() {
 
         Firebase.auth.onAuthStateChanged(async (user) => {
             appState.currentUser = user;
-            await updateUserArea(user); // Esta função agora controla o header e a nav
+            await updateUserArea(user);
+
             if (keyFromUrl && !user) {
-                const { isValid, isUsed, data } = await handleAccessKeyValidation(keyFromUrl);
-                if (isValid && !isUsed) {
-                    appState.accessKeyInfo = { key: keyFromUrl, data };
-                    UI.renderAuthForm('signup', keyFromUrl, data);
-                    setupAuthFormListeners();
-                } else if (isUsed) {
-                     UI.showToast('Este convite já foi utilizado. Por favor, faça login.', 'info');
-                     UI.renderAuthForm('login');
-                     setupAuthFormListeners();
-                } else { UI.showToast('Convite inválido.', 'error'); }
-            } else { UI.toggleAuthModal(false); }
+                const showSignupFlow = async () => {
+                    const { isValid, isUsed, data } = await handleAccessKeyValidation(keyFromUrl);
+                    if (isValid && !isUsed) {
+                        appState.accessKeyInfo = { key: keyFromUrl, data };
+                        UI.renderAuthForm('signup', keyFromUrl, data);
+                        setupAuthFormListeners();
+                    } else if (isUsed) {
+                        UI.showToast('Este convite já foi utilizado. Por favor, faça login.', 'info');
+                        UI.renderAuthForm('login');
+                        setupAuthFormListeners();
+                    } else {
+                        UI.showToast('Convite inválido.', 'error');
+                    }
+                };
+
+                if (!localStorage.getItem('tutorialShown')) {
+                    UI.showTutorialModal(() => {
+                        localStorage.setItem('tutorialShown', 'true');
+                        showSignupFlow();
+                    });
+                } else {
+                    showSignupFlow();
+                }
+            } else {
+                UI.toggleAuthModal(false);
+            }
             renderCurrentView();
         });
+        
         setTimeout(() => {
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('opacity-0');
