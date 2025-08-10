@@ -102,70 +102,178 @@ export async function validateAccessKey(key) {
 }
 
 // ATUALIZADO: Busca pelo UID do usuário em vez do email
-export async function findAccessKeyForUser(uid) {
+export async function findAccessKeyForUser(userId) {
     try {
-        const snapshot = await db.collection('accessKeys').where('usedByUID', '==', uid).limit(1).get();
-        if (snapshot.empty) return null;
-        const doc = snapshot.docs[0];
-        return { key: doc.id, data: doc.data() };
+        const currentUser = auth.currentUser;
+        if (!currentUser) return null;
+
+        // Primeiro, tenta encontrar pela chave usada (por userId)
+        const snapshot = await db.collection('accessKeys')
+            .where('isUsed', '==', true)
+            .where('usedByUserId', '==', userId)
+            .limit(1)
+            .get();
+
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            return {
+                key: doc.id,
+                data: doc.data()
+            };
+        }
+
+        // Se não encontrou por userId, tenta por email
+        const emailSnapshot = await db.collection('accessKeys')
+            .where('isUsed', '==', true)
+            .where('usedByEmail', '==', currentUser.email)
+            .limit(1)
+            .get();
+
+        if (!emailSnapshot.empty) {
+            const doc = emailSnapshot.docs[0];
+            return {
+                key: doc.id,
+                data: doc.data()
+            };
+        }
+
+        // Se ainda não encontrou, procura na coleção de usuários
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            if (userData.accessKey) {
+                const keyDoc = await db.collection('accessKeys').doc(userData.accessKey).get();
+                if (keyDoc.exists) {
+                    return {
+                        key: keyDoc.id,
+                        data: keyDoc.data()
+                    };
+                }
+            }
+        }
+
+        console.log('Nenhuma chave de acesso encontrada para o usuário:', userId);
+        return null;
     } catch (error) {
-        console.error("Error finding access key for user:", error);
+        console.error('Erro ao buscar chave de acesso do usuário:', error);
         return null;
     }
 }
 
-export function loginUser(email, password) {
-    return auth.signInWithEmailAndPassword(email, password);
-}
-
 // ATUALIZADO: Salva o UID do usuário no documento da chave de acesso
 export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
-    let userCredential;
-    if (socialProvider && user) {
-        userCredential = { user };
-        if (!user.displayName || user.displayName !== name) await user.updateProfile({ displayName: name });
-    } else {
-        userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        await userCredential.user.updateProfile({ displayName: name });
+    try {
+        let currentUser = user;
+        
+        // Se não há usuário (cadastro por email/senha)
+        if (!currentUser && password) {
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            currentUser = userCredential.user;
+            await currentUser.updateProfile({ displayName: name });
+        }
+
+        if (!currentUser) {
+            throw new Error('Falha ao criar/obter usuário');
+        }
+
+        // Atualiza a chave de acesso com informações completas do usuário
+        await db.collection('accessKeys').doc(keyDocId).update({
+            isUsed: true,
+            usedByEmail: currentUser.email,
+            usedByUserId: currentUser.uid, // Campo correto
+            usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            willAttendRestaurant: willAttendRestaurant
+        });
+
+        // Salva os nomes dos convidados
+        const batch = db.batch();
+        guestNames.forEach((guestName, index) => {
+            const guestRef = db.collection('accessKeys').doc(keyDocId).collection('guestNames').doc(`guest_${index}`);
+            batch.set(guestRef, { name: guestName, order: index });
+        });
+        await batch.commit();
+
+        // Cria/atualiza documento do usuário para referência rápida
+        await db.collection('users').doc(currentUser.uid).set({
+            name: name,
+            email: currentUser.email,
+            accessKey: keyDocId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            socialProvider: socialProvider
+        }, { merge: true });
+
+        return currentUser;
+    } catch (error) {
+        console.error('Erro no cadastro:', error);
+        throw error;
     }
-    const keyRef = db.collection('accessKeys').doc(keyDocId);
-    const guestNamesCollectionRef = keyRef.collection('guestNames');
-    const batch = db.batch();
-    guestNames.forEach(guestName => {
-        if (guestName.trim() !== '') batch.set(guestNamesCollectionRef.doc(), { name: guestName });
-    });
-    await batch.commit();
-    await keyRef.update({
-        isUsed: true,
-        usedByEmail: userCredential.user.email,
-        usedByUID: userCredential.user.uid, // NOVO CAMPO
-        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        willAttendRestaurant: willAttendRestaurant,
-        authMethod: socialProvider || 'email'
-    });
+}
+export async function updateRsvpDetails(keyId, { guestNames, willAttendRestaurant }) {
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            throw new Error('Usuário não autenticado');
+        }
+
+        // Atualiza os detalhes principais da chave
+        await db.collection('accessKeys').doc(keyId).update({
+            willAttendRestaurant: willAttendRestaurant,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Remove nomes antigos e adiciona os novos
+        const guestNamesCollection = db.collection('accessKeys').doc(keyId).collection('guestNames');
+        
+        // Primeiro, remove todos os nomes existentes
+        const existingNames = await guestNamesCollection.get();
+        const batch = db.batch();
+        
+        existingNames.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // Adiciona os novos nomes
+        guestNames.forEach((guestName, index) => {
+            const guestRef = guestNamesCollection.doc(`guest_${index}`);
+            batch.set(guestRef, { name: guestName, order: index });
+        });
+
+        await batch.commit();
+        
+        console.log('RSVP atualizado com sucesso');
+    } catch (error) {
+        console.error('Erro ao atualizar RSVP:', error);
+        throw error;
+    }
 }
 
-export async function updateRsvpDetails(keyId, newData) {
-    const keyRef = db.collection('accessKeys').doc(keyId);
-    const guestNamesRef = keyRef.collection('guestNames');
-    const oldNamesSnapshot = await guestNamesRef.get();
-    const deleteBatch = db.batch();
-    oldNamesSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
-    await deleteBatch.commit();
-    const addBatch = db.batch();
-    newData.guestNames.forEach(name => {
-        if (name.trim()) addBatch.set(guestNamesRef.doc(), { name });
-    });
-    await addBatch.commit();
-    return keyRef.update({ willAttendRestaurant: newData.willAttendRestaurant });
+export async function userHasAccessToKey(keyId, userId) {
+    try {
+        const keyDoc = await db.collection('accessKeys').doc(keyId).get();
+        if (!keyDoc.exists) return false;
+        
+        const keyData = keyDoc.data();
+        const currentUser = auth.currentUser;
+        
+        return keyData.usedByUserId === userId || 
+               keyData.usedByEmail === currentUser?.email;
+    } catch (error) {
+        console.error('Erro ao verificar permissão da chave:', error);
+        return false;
+    }
 }
 
 export async function getGuestNames(keyId) {
     try {
-        const snapshot = await db.collection('accessKeys').doc(keyId).collection('guestNames').get();
-        return snapshot.empty ? [] : snapshot.docs.map(doc => doc.data().name);
+        const snapshot = await db.collection('accessKeys')
+            .doc(keyId)
+            .collection('guestNames')
+            .orderBy('order')
+            .get();
+        
+        return snapshot.docs.map(doc => doc.data().name);
     } catch (error) {
-        console.error("Error fetching guest names:", error);
+        console.error('Error fetching guest names:', error);
         return [];
     }
 }

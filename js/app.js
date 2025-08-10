@@ -339,12 +339,19 @@ async function updateUserArea(user) {
 
     if (!container) return;
 
-    // Lógica centralizada para buscar/limpar dados do convite
+    // Lógica melhorada para buscar/limpar dados do convite
     if (user) {
-        const keyInfo = await Firebase.findAccessKeyForUser(user.uid);
-        appState.accessKeyInfo = keyInfo; // Define a informação, seja ela encontrada ou nula
+        try {
+            console.log('Buscando informações da chave para usuário:', user.uid);
+            const keyInfo = await Firebase.findAccessKeyForUser(user.uid);
+            console.log('Informações da chave encontradas:', keyInfo);
+            appState.accessKeyInfo = keyInfo;
+        } catch (error) {
+            console.error('Erro ao buscar informações da chave:', error);
+            appState.accessKeyInfo = null;
+        }
     } else {
-        appState.accessKeyInfo = null; // Limpa a informação no logout
+        appState.accessKeyInfo = null;
     }
 
     // Lógica para renderizar o cabeçalho
@@ -353,13 +360,16 @@ async function updateUserArea(user) {
         const welcomeText = document.createElement('span');
         welcomeText.className = 'text-sm text-gray-600 dark:text-gray-300 hidden sm:inline';
         welcomeText.textContent = `Olá, ${user.displayName ? user.displayName.split(' ')[0] : 'Convidado'}`;
+        
         const logoutButton = document.createElement('button');
         logoutButton.title = 'Sair';
         logoutButton.setAttribute('aria-label', 'Sair da conta');
         logoutButton.className = 'text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-dark-primary transition-colors';
         logoutButton.innerHTML = '<i class="fas fa-sign-out-alt fa-lg"></i>';
         logoutButton.addEventListener('click', () => Firebase.auth.signOut());
+        
         container.appendChild(welcomeText);
+        
         if (adminEmails.includes(user.email)) {
             const adminButton = document.createElement('a');
             adminButton.href = 'admin.html';
@@ -370,6 +380,7 @@ async function updateUserArea(user) {
             adminButton.innerHTML = '<i class="fas fa-user-shield fa-lg"></i>';
             container.appendChild(adminButton);
         }
+        
         container.appendChild(logoutButton);
     }
 }
@@ -420,6 +431,7 @@ async function initApp() {
             document.body.innerHTML = `<div class="text-center p-8">Erro ao carregar os dados do casamento.</div>`;
             return;
         }
+        
         UI.initToast();
         document.getElementById('loading-title').textContent = appState.weddingDetails.coupleNames;
         document.getElementById('page-title').textContent = appState.weddingDetails.coupleNames;
@@ -435,7 +447,10 @@ async function initApp() {
         appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
         Firebase.auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state changed:', user ? user.uid : 'null');
             appState.currentUser = user;
+            
+            // Aguarda a atualização da área do usuário antes de continuar
             await updateUserArea(user);
 
             if (keyFromUrl && !user) {
@@ -465,6 +480,9 @@ async function initApp() {
             } else {
                 UI.toggleAuthModal(false);
             }
+            
+            console.log('Renderizando view atual:', appState.currentView);
+            console.log('AccessKeyInfo:', appState.accessKeyInfo);
             renderCurrentView();
         });
         
