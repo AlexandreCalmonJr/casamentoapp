@@ -1,3 +1,4 @@
+
 // js/firebase-service.js
 
 import { cloudinaryConfig, firebaseConfig } from './config.js';
