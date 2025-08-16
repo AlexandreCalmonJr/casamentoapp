@@ -1,4 +1,4 @@
-const CACHE_NAME = 'casamento-app-v2';
+const CACHE_NAME = 'casamento-app-v4';
 // Lista de arquivos essenciais para o funcionamento offline do app.
 const FILES_TO_CACHE = [
   '/',

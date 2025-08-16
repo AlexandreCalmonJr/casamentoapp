@@ -260,7 +260,6 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 function generatePixCode(pixKey, name, city, value, transactionId) {
-
     const format = (id, val) => {
         const len = val.length.toString().padStart(2, '0');
         return `${id}${len}${val}`;
@@ -274,7 +273,6 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
 
         const payload = [
             format('00', '01'),
-            // AQUI ESTÁ A CORREÇÃO: "BR.GOV.BCB.PIX" EM MAIÚSCULAS
             format('26', `${format('00', 'BR.GOV.BCB.PIX')}${format('01', key)}`),
             format('52', '0000'),
             format('53', '986'),
