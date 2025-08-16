@@ -265,21 +265,26 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
         throw new Error('PIX key, nome e cidade são obrigatórios');
     }
 
-    // Limita e normaliza os campos para garantir conformidade
+    // Normalização mais rigorosa para compatibilidade
     const sanitizedName = name.normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9\s]/gi, '') // Remove caracteres especiais
         .toUpperCase()
+        .trim()
         .substring(0, 25);
     
     const sanitizedCity = city.normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9\s]/gi, '') // Remove caracteres especiais
         .toUpperCase()
+        .trim()
         .substring(0, 15);
     
-    // O ID da transação não pode ter espaços
+    // ID da transação mais simples
     const sanitizedTxId = (transactionId || '***')
-        .replace(/\s/g, '')
-        .substring(0, 25);
+        .replace(/[^A-Z0-9]/gi, '') // Só alfanuméricos
+        .toUpperCase()
+        .substring(0, 25) || '***';
 
     /**
      * Formata um campo do PIX com ID, tamanho e valor (TLV - Type-Length-Value)
@@ -320,7 +325,7 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
     
     // Merchant Account Information (Informações da Conta PIX)
     let merchantAccountInfo = '';
-    merchantAccountInfo += formatField('00', 'br.gov.bcb.pix'); // GUI (minúsculas conforme padrão)
+    merchantAccountInfo += formatField('00', 'BR.GOV.BCB.PIX'); // GUI (maiúsculas para compatibilidade)
     merchantAccountInfo += formatField('01', pixKey); // Chave PIX
     
     payload += formatField('26', merchantAccountInfo);
@@ -331,9 +336,10 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
     // Transaction Currency (986 = BRL)
     payload += formatField('53', '986');
     
-    // Transaction Amount (opcional)
+    // Transaction Amount (opcional) - formato mais rigoroso
     if (value && value > 0) {
-        payload += formatField('54', value.toFixed(2));
+        const formattedValue = parseFloat(value).toFixed(2);
+        payload += formatField('54', formattedValue);
     }
     
     // Country Code
@@ -345,9 +351,11 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
     // Merchant City
     payload += formatField('60', sanitizedCity);
     
-    // Additional Data Field Template
-    const additionalData = formatField('05', sanitizedTxId);
-    payload += formatField('62', additionalData);
+    // Additional Data Field Template (mais compatível)
+    let additionalDataFields = '';
+    additionalDataFields += formatField('05', sanitizedTxId); // Reference Label
+    
+    payload += formatField('62', additionalDataFields);
     
     // CRC16 - adiciona o campo sem o valor ainda
     payload += '6304';
@@ -373,18 +381,29 @@ function isValidPixKey(pixKey) {
            randomKeyRegex.test(pixKey);
 }
 
-// Exemplo de uso:
+// Exemplo de uso com diferentes cenários:
 try {
-    const pixCode = generatePixCode(
+    // Teste 1: PIX com valor (mais compatível)
+    const pixCode1 = generatePixCode(
         '11999887766',           // Chave PIX (telefone)
-        'João Silva',            // Nome do recebedor
-        'São Paulo',             // Cidade
-        50.00,                   // Valor (opcional)
-        'VENDA001'              // ID da transação
+        'JOAO SILVA',            // Nome em maiúsculas
+        'SAO PAULO',             // Cidade em maiúsculas
+        1.00,                    // Valor mínimo para teste
+        'TX001'                  // ID curto
     );
     
-    console.log('Código PIX:', pixCode);
-    console.log('QR Code: Use este código em um gerador de QR Code');
+    console.log('PIX com valor:', pixCode1);
+    
+    // Teste 2: PIX sem valor (estático)
+    const pixCode2 = generatePixCode(
+        '11999887766',           // Chave PIX
+        'JOAO SILVA',            // Nome
+        'SAO PAULO',             // Cidade
+        null,                    // Sem valor
+        '***'                    // ID padrão
+    );
+    
+    console.log('PIX estático:', pixCode2);
     
 } catch (error) {
     console.error('Erro:', error.message);
