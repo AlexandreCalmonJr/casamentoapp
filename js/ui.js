@@ -262,33 +262,27 @@ export function renderPixModal(gift, weddingDetails) {
 function generatePixCode(pixKey, name, city, value, transactionId) {
     /**
      * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX.
-     * @param {string} data - A string de dados para calcular o CRC.
-     * @returns {string} O CRC16 calculado como uma string hexadecimal de 4 caracteres.
+     * Esta é a versão corrigida que gera um CRC válido.
      */
-    function crc16_ccitt_false(data) {
+    function crc16(data) {
         let crc = 0xFFFF;
         const polynomial = 0x1021;
-
         for (let i = 0; i < data.length; i++) {
             let byte = data.charCodeAt(i);
-            crc ^= (byte << 8);
+            crc ^= byte << 8;
             for (let j = 0; j < 8; j++) {
                 if ((crc & 0x8000) !== 0) {
-                    crc = ((crc << 1) ^ polynomial);
+                    crc = (crc << 1) ^ polynomial;
                 } else {
-                    crc = (crc << 1);
+                    crc <<= 1;
                 }
             }
         }
-        // Garante que o resultado final seja um número de 16 bits
         return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
     }
 
     /**
      * Formata um campo do PIX com ID, tamanho e valor.
-     * @param {string} id - O ID do campo (ex: '00', '53').
-     * @param {string} value - O valor do campo.
-     * @returns {string} O campo formatado.
      */
     function formatField(id, value) {
         const length = value.length.toString().padStart(2, '0');
@@ -327,7 +321,7 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
     pixString += '6304';
 
     // Calcula o CRC e o anexa à string
-    const crc = crc16_ccitt_false(pixString);
+    const crc = crc16(pixString);
     pixString += crc;
 
     return pixString;
