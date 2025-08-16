@@ -260,11 +260,26 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 function generatePixCode(pixKey, name, city, value, transactionId) {
+    // Validações básicas
+    if (!pixKey || !name || !city) {
+        throw new Error('PIX key, nome e cidade são obrigatórios');
+    }
+
     // Limita e normaliza os campos para garantir conformidade
-    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
-    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
-    // O ID da transação não pode ter espaços e é recomendado que seja '***' se não for definido
-    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
+    const sanitizedName = name.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .substring(0, 25);
+    
+    const sanitizedCity = city.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .substring(0, 15);
+    
+    // O ID da transação não pode ter espaços
+    const sanitizedTxId = (transactionId || '***')
+        .replace(/\s/g, '')
+        .substring(0, 25);
 
     /**
      * Formata um campo do PIX com ID, tamanho e valor (TLV - Type-Length-Value)
@@ -274,62 +289,105 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
         return `${id}${length}${value}`;
     };
 
-    // --- Montagem dos campos principais ---
-    let payload = '';
-    payload += formatField('00', '01'); // Payload Format Indicator
-
-    // Merchant Account Information (Informações da Conta)
-    let merchantAccountInfo = '';
-    merchantAccountInfo += formatField('00', 'BR.GOV.BCB.PIX'); // GUI (Identificador do PIX)
-    merchantAccountInfo += formatField('01', pixKey); // Chave PIX
-    // O campo 02 (Descrição) é opcional e pode causar problemas em alguns bancos se usado aqui.
-    payload += formatField('26', merchantAccountInfo);
-
-    payload += formatField('52', '0000'); // Merchant Category Code
-    payload += formatField('53', '986');  // Moeda da Transação (986 = BRL)
-    
-    // Valor da Transação
-    if (value && value > 0) {
-        payload += formatField('54', value.toFixed(2));
-    }
-
-    // --- Informações adicionais ---
-    payload += formatField('58', 'BR'); // Código do País
-    payload += formatField('59', sanitizedName); // Nome do Beneficiário
-    payload += formatField('60', sanitizedCity); // Cidade do Beneficiário
-
-    // Additional Data Field Template (Campo de Dados Adicionais)
-    // É aqui que o ID da transação deve estar, dentro do subcampo 05.
-    const additionalData = formatField('05', sanitizedTxId);
-    payload += formatField('62', additionalData);
-
-    // --- Cálculo do CRC16 ---
-    payload += '6304'; // ID e tamanho do campo CRC16
-
     /**
-     * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX.
+     * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX
      */
     function crc16(data) {
         let crc = 0xFFFF;
         const polynomial = 0x1021;
+        
         for (let i = 0; i < data.length; i++) {
             let byte = data.charCodeAt(i);
             crc ^= byte << 8;
+            
             for (let j = 0; j < 8; j++) {
                 if ((crc & 0x8000) !== 0) {
-                    crc = (crc << 1) ^ polynomial;
+                    crc = ((crc << 1) ^ polynomial) & 0xFFFF;
                 } else {
-                    crc <<= 1;
+                    crc = (crc << 1) & 0xFFFF;
                 }
             }
         }
-        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+        
+        return crc.toString(16).toUpperCase().padStart(4, '0');
     }
 
+    // --- Montagem dos campos principais ---
+    let payload = '';
+    
+    // Payload Format Indicator
+    payload += formatField('00', '01');
+    
+    // Merchant Account Information (Informações da Conta PIX)
+    let merchantAccountInfo = '';
+    merchantAccountInfo += formatField('00', 'br.gov.bcb.pix'); // GUI (minúsculas conforme padrão)
+    merchantAccountInfo += formatField('01', pixKey); // Chave PIX
+    
+    payload += formatField('26', merchantAccountInfo);
+    
+    // Merchant Category Code (0000 para pessoa física)
+    payload += formatField('52', '0000');
+    
+    // Transaction Currency (986 = BRL)
+    payload += formatField('53', '986');
+    
+    // Transaction Amount (opcional)
+    if (value && value > 0) {
+        payload += formatField('54', value.toFixed(2));
+    }
+    
+    // Country Code
+    payload += formatField('58', 'BR');
+    
+    // Merchant Name
+    payload += formatField('59', sanitizedName);
+    
+    // Merchant City
+    payload += formatField('60', sanitizedCity);
+    
+    // Additional Data Field Template
+    const additionalData = formatField('05', sanitizedTxId);
+    payload += formatField('62', additionalData);
+    
+    // CRC16 - adiciona o campo sem o valor ainda
+    payload += '6304';
+    
+    // Calcula o CRC16 e adiciona ao payload
     const finalPayload = payload + crc16(payload);
     
-
     return finalPayload;
+}
+
+// Função auxiliar para validar chave PIX
+function isValidPixKey(pixKey) {
+    const cpfRegex = /^\d{11}$/;
+    const cnpjRegex = /^\d{14}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\+55\d{10,11}$/;
+    const randomKeyRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    return cpfRegex.test(pixKey) || 
+           cnpjRegex.test(pixKey) || 
+           emailRegex.test(pixKey) || 
+           phoneRegex.test(pixKey) || 
+           randomKeyRegex.test(pixKey);
+}
+
+// Exemplo de uso:
+try {
+    const pixCode = generatePixCode(
+        '11999887766',           // Chave PIX (telefone)
+        'João Silva',            // Nome do recebedor
+        'São Paulo',             // Cidade
+        50.00,                   // Valor (opcional)
+        'VENDA001'              // ID da transação
+    );
+    
+    console.log('Código PIX:', pixCode);
+    console.log('QR Code: Use este código em um gerador de QR Code');
+    
+} catch (error) {
+    console.error('Erro:', error.message);
 }
 export function togglePixModal(show) { document.getElementById('pix-modal').classList.toggle('hidden', !show); }
 
