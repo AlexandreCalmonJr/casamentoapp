@@ -260,152 +260,54 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 function generatePixCode(pixKey, name, city, value, transactionId) {
-    // Validações básicas
-    if (!pixKey || !name || !city) {
-        throw new Error('PIX key, nome e cidade são obrigatórios');
-    }
 
-    // Normalização ULTRA compatível - só alfanuméricos, SEM espaços
-    const sanitizedName = name.normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^A-Z0-9]/gi, '') // Remove TUDO que não for letra/número
-        .toUpperCase()
-        .substring(0, 25);
-    
-    const sanitizedCity = city.normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^A-Z0-9]/gi, '') // Remove TUDO que não for letra/número
-        .toUpperCase()
-        .substring(0, 15);
-    
-    // ID da transação - só números e letras
-    const sanitizedTxId = (transactionId || '***')
-        .replace(/[^A-Z0-9]/gi, '') // Só alfanuméricos
-        .toUpperCase()
-        .substring(0, 25) || '***';
-
-    /**
-     * Formata um campo do PIX com ID, tamanho e valor (TLV - Type-Length-Value)
-     */
-    const formatField = (id, value) => {
-        const length = value.length.toString().padStart(2, '0');
-        return `${id}${length}${value}`;
+    const format = (id, val) => {
+        const len = val.length.toString().padStart(2, '0');
+        return `${id}${len}${val}`;
     };
 
-    /**
-     * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX
-     */
-    function crc16(data) {
+    const getPayload = (key, txid, amount, receiver, city) => {
+        txid = (txid || '***').substring(0, 25);
+        amount = amount ? amount.toFixed(2) : null;
+        receiver = receiver.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 25);
+        city = city.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 15);
+
+        const payload = [
+            format('00', '01'),
+            // AQUI ESTÁ A CORREÇÃO: "BR.GOV.BCB.PIX" EM MAIÚSCULAS
+            format('26', `${format('00', 'BR.GOV.BCB.PIX')}${format('01', key)}`),
+            format('52', '0000'),
+            format('53', '986'),
+            ...(amount ? [format('54', amount)] : []),
+            format('58', 'BR'),
+            format('59', receiver),
+            format('60', city),
+            format('62', format('05', txid)),
+        ].join('');
+
+        return `${payload}6304`;
+    };
+
+    const crc16 = (payload) => {
         let crc = 0xFFFF;
         const polynomial = 0x1021;
-        
-        for (let i = 0; i < data.length; i++) {
-            let byte = data.charCodeAt(i);
-            crc ^= byte << 8;
-            
+
+        for (let i = 0; i < payload.length; i++) {
+            const byte = payload.charCodeAt(i);
+            crc ^= (byte << 8);
             for (let j = 0; j < 8; j++) {
-                if ((crc & 0x8000) !== 0) {
-                    crc = ((crc << 1) ^ polynomial) & 0xFFFF;
-                } else {
-                    crc = (crc << 1) & 0xFFFF;
-                }
+                crc = (crc & 0x8000) ? (crc << 1) ^ polynomial : crc << 1;
             }
         }
-        
-        return crc.toString(16).toUpperCase().padStart(4, '0');
-    }
+        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    };
 
-    // --- Montagem dos campos principais ---
-    let payload = '';
-    
-    // Payload Format Indicator
-    payload += formatField('00', '01');
-    
-    // Merchant Account Information (Informações da Conta PIX)
-    let merchantAccountInfo = '';
-    merchantAccountInfo += formatField('00', 'BR.GOV.BCB.PIX'); // GUI (maiúsculas para compatibilidade)
-    merchantAccountInfo += formatField('01', pixKey); // Chave PIX
-    
-    payload += formatField('26', merchantAccountInfo);
-    
-    // Merchant Category Code (0000 para pessoa física)
-    payload += formatField('52', '0000');
-    
-    // Transaction Currency (986 = BRL)
-    payload += formatField('53', '986');
-    
-    // Transaction Amount (opcional) - formato mais rigoroso
-    if (value && value > 0) {
-        const formattedValue = parseFloat(value).toFixed(2);
-        payload += formatField('54', formattedValue);
-    }
-    
-    // Country Code
-    payload += formatField('58', 'BR');
-    
-    // Merchant Name
-    payload += formatField('59', sanitizedName);
-    
-    // Merchant City
-    payload += formatField('60', sanitizedCity);
-    
-    // Additional Data Field Template (mais compatível)
-    let additionalDataFields = '';
-    additionalDataFields += formatField('05', sanitizedTxId); // Reference Label
-    
-    payload += formatField('62', additionalDataFields);
-    
-    // CRC16 - adiciona o campo sem o valor ainda
-    payload += '6304';
-    
-    // Calcula o CRC16 e adiciona ao payload
-    const finalPayload = payload + crc16(payload);
-    
-    return finalPayload;
+    const payload = getPayload(pixKey, transactionId, value, name, city);
+    const checksum = crc16(payload);
+
+    return `${payload}${checksum}`;
 }
 
-// Função auxiliar para validar chave PIX
-function isValidPixKey(pixKey) {
-    const cpfRegex = /^\d{11}$/;
-    const cnpjRegex = /^\d{14}$/;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^\+55\d{10,11}$/;
-    const randomKeyRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    return cpfRegex.test(pixKey) || 
-           cnpjRegex.test(pixKey) || 
-           emailRegex.test(pixKey) || 
-           phoneRegex.test(pixKey) || 
-           randomKeyRegex.test(pixKey);
-}
-
-// Exemplo de uso CORRIGIDO para máxima compatibilidade:
-try {
-    // Teste com dados que causavam problema:
-    const pixCode1 = generatePixCode(
-        '11060885865',           // Chave PIX sem hífen
-        'Alexandre e Andressa',  // Nome com espaço (será removido)
-        'Salvador',              // Cidade 
-        1.00,                    // Valor
-        'GIFT-custom'           // ID com hífen (será removido)
-    );
-    
-    console.log('PIX corrigido:', pixCode1);
-    
-    // Versão ideal para bancos restritivos:
-    const pixCode2 = generatePixCode(
-        '11060885865',           
-        'ALEXANDREEAND',         // Sem espaços
-        'SALVADOR',              
-        1.00,                    
-        'TX001'                  // ID simples
-    );
-    
-    console.log('PIX ideal:', pixCode2);
-    
-} catch (error) {
-    console.error('Erro:', error.message);
-}
 export function togglePixModal(show) { document.getElementById('pix-modal').classList.toggle('hidden', !show); }
 
 export function initializeGiftEventListeners(weddingDetails, currentUser) {
