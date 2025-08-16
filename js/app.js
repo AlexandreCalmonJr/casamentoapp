@@ -425,6 +425,15 @@ window.onpopstate = (event) => {
 };
 
 async function initApp() {
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then((reg) => console.log('Service worker registrado.', reg))
+                .catch((err) => console.log('Service worker não registrado.', err));
+        });
+    }
+
     try {
         appState.weddingDetails = await Firebase.getWeddingDetails();
         if (!appState.weddingDetails) {
