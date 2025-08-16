@@ -260,9 +260,54 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 function generatePixCode(pixKey, name, city, value, transactionId) {
+    // Limita e normaliza os campos para garantir conformidade
+    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
+    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
+    // O ID da transação não pode ter espaços e é recomendado que seja '***' se não for definido
+    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
+
+    /**
+     * Formata um campo do PIX com ID, tamanho e valor (TLV - Type-Length-Value)
+     */
+    const formatField = (id, value) => {
+        const length = value.length.toString().padStart(2, '0');
+        return `${id}${length}${value}`;
+    };
+
+    // --- Montagem dos campos principais ---
+    let payload = '';
+    payload += formatField('00', '01'); // Payload Format Indicator
+
+    // Merchant Account Information (Informações da Conta)
+    let merchantAccountInfo = '';
+    merchantAccountInfo += formatField('00', 'BR.GOV.BCB.PIX'); // GUI (Identificador do PIX)
+    merchantAccountInfo += formatField('01', pixKey); // Chave PIX
+    // O campo 02 (Descrição) é opcional e pode causar problemas em alguns bancos se usado aqui.
+    payload += formatField('26', merchantAccountInfo);
+
+    payload += formatField('52', '0000'); // Merchant Category Code
+    payload += formatField('53', '986');  // Moeda da Transação (986 = BRL)
+    
+    // Valor da Transação
+    if (value && value > 0) {
+        payload += formatField('54', value.toFixed(2));
+    }
+
+    // --- Informações adicionais ---
+    payload += formatField('58', 'BR'); // Código do País
+    payload += formatField('59', sanitizedName); // Nome do Beneficiário
+    payload += formatField('60', sanitizedCity); // Cidade do Beneficiário
+
+    // Additional Data Field Template (Campo de Dados Adicionais)
+    // É aqui que o ID da transação deve estar, dentro do subcampo 05.
+    const additionalData = formatField('05', sanitizedTxId);
+    payload += formatField('62', additionalData);
+
+    // --- Cálculo do CRC16 ---
+    payload += '6304'; // ID e tamanho do campo CRC16
+
     /**
      * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX.
-     * Esta é a versão corrigida que gera um CRC válido.
      */
     function crc16(data) {
         let crc = 0xFFFF;
@@ -281,52 +326,11 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
         return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
     }
 
-    /**
-     * Formata um campo do PIX com ID, tamanho e valor.
-     */
-    function formatField(id, value) {
-        const length = value.length.toString().padStart(2, '0');
-        return id + length + value;
-    }
-
-    // Normaliza e limita os campos de texto conforme a especificação do PIX
-    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
-    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
-    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
-
-    // Monta a string principal do PIX
-    let pixString = '';
-    pixString += formatField('00', '01'); // Payload Format Indicator
-
-    // Merchant Account Information
-    const merchantInfo = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', pixKey);
-    pixString += formatField('26', merchantInfo);
+    const finalPayload = payload + crc16(payload);
     
-    pixString += formatField('52', '0000'); // Merchant Category Code
-    pixString += formatField('53', '986');  // Transaction Currency (BRL)
-    
-    if (value && value > 0) {
-        pixString += formatField('54', value.toFixed(2)); // Transaction Amount
-    }
-    
-    pixString += formatField('58', 'BR'); // Country Code
-    pixString += formatField('59', sanitizedName); // Merchant Name
-    pixString += formatField('60', sanitizedCity); // Merchant City
 
-    // Additional Data Field Template
-    const additionalData = formatField('05', sanitizedTxId);
-    pixString += formatField('62', additionalData);
-
-    // Adiciona o campo do CRC (ID e tamanho) antes de calcular
-    pixString += '6304';
-
-    // Calcula o CRC e o anexa à string
-    const crc = crc16(pixString);
-    pixString += crc;
-
-    return pixString;
+    return finalPayload;
 }
-
 export function togglePixModal(show) { document.getElementById('pix-modal').classList.toggle('hidden', !show); }
 
 export function initializeGiftEventListeners(weddingDetails, currentUser) {
