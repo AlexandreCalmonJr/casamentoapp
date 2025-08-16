@@ -265,22 +265,20 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
         throw new Error('PIX key, nome e cidade são obrigatórios');
     }
 
-    // Normalização mais rigorosa para compatibilidade
+    // Normalização ULTRA compatível - só alfanuméricos, SEM espaços
     const sanitizedName = name.normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^A-Z0-9\s]/gi, '') // Remove caracteres especiais
+        .replace(/[^A-Z0-9]/gi, '') // Remove TUDO que não for letra/número
         .toUpperCase()
-        .trim()
         .substring(0, 25);
     
     const sanitizedCity = city.normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^A-Z0-9\s]/gi, '') // Remove caracteres especiais
+        .replace(/[^A-Z0-9]/gi, '') // Remove TUDO que não for letra/número
         .toUpperCase()
-        .trim()
         .substring(0, 15);
     
-    // ID da transação mais simples
+    // ID da transação - só números e letras
     const sanitizedTxId = (transactionId || '***')
         .replace(/[^A-Z0-9]/gi, '') // Só alfanuméricos
         .toUpperCase()
@@ -381,29 +379,29 @@ function isValidPixKey(pixKey) {
            randomKeyRegex.test(pixKey);
 }
 
-// Exemplo de uso com diferentes cenários:
+// Exemplo de uso CORRIGIDO para máxima compatibilidade:
 try {
-    // Teste 1: PIX com valor (mais compatível)
+    // Teste com dados que causavam problema:
     const pixCode1 = generatePixCode(
-        '11999887766',           // Chave PIX (telefone)
-        'JOAO SILVA',            // Nome em maiúsculas
-        'SAO PAULO',             // Cidade em maiúsculas
-        1.00,                    // Valor mínimo para teste
-        'TX001'                  // ID curto
+        '11060885865',           // Chave PIX sem hífen
+        'Alexandre e Andressa',  // Nome com espaço (será removido)
+        'Salvador',              // Cidade 
+        1.00,                    // Valor
+        'GIFT-custom'           // ID com hífen (será removido)
     );
     
-    console.log('PIX com valor:', pixCode1);
+    console.log('PIX corrigido:', pixCode1);
     
-    // Teste 2: PIX sem valor (estático)
+    // Versão ideal para bancos restritivos:
     const pixCode2 = generatePixCode(
-        '11999887766',           // Chave PIX
-        'JOAO SILVA',            // Nome
-        'SAO PAULO',             // Cidade
-        null,                    // Sem valor
-        '***'                    // ID padrão
+        '11060885865',           
+        'ALEXANDREEAND',         // Sem espaços
+        'SALVADOR',              
+        1.00,                    
+        'TX001'                  // ID simples
     );
     
-    console.log('PIX estático:', pixCode2);
+    console.log('PIX ideal:', pixCode2);
     
 } catch (error) {
     console.error('Erro:', error.message);
