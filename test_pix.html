@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Geração PIX</title>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+</head>
+<body>
+
+    <h1>Teste de Geração de QR Code PIX</h1>
+    <p>Clique no botão para gerar um QR Code de teste e tente lê-lo com a aplicação do Banco Inter.</p>
+    <button onclick="gerarTeste()">Gerar PIX de Teste</button>
+    <hr>
+    <h2>QR Code Gerado:</h2>
+    <div id="qrcode" style="padding: 10px; background: white; width: fit-content;"></div>
+    <h2>Código "Copia e Cola" Gerado:</h2>
+    <textarea id="pix-string" rows="5" cols="70" readonly></textarea>
+
+    <script>
+        // ESTA É A VERSÃO MAIS RECENTE E CORRIGIDA DA FUNÇÃO
+        function generatePixCode(pixKey, name, city, value, transactionId) {
+            const format = (id, val) => {
+                const len = val.length.toString().padStart(2, '0');
+                return `${id}${len}${val}`;
+            };
+
+            const getPayload = (key, txid, amount, receiver, city) => {
+                txid = (txid || '***').substring(0, 25);
+                amount = amount ? amount.toFixed(2) : null;
+                receiver = receiver.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 25);
+                city = city.normalize('NFD').replace(/[\u0300-\u036f]/g, '').substring(0, 15);
+
+                const payload = [
+                    format('00', '01'),
+                    format('26', `${format('00', 'BR.GOV.BCB.PIX')}${format('01', key)}`),
+                    format('52', '0000'),
+                    format('53', '986'),
+                    ...(amount ? [format('54', amount)] : []),
+                    format('58', 'BR'),
+                    format('59', receiver),
+                    format('60', city),
+                    format('62', format('05', txid)),
+                ].join('');
+
+                return `${payload}6304`;
+            };
+
+            const crc16 = (payload) => {
+                let crc = 0xFFFF;
+                const polynomial = 0x1021;
+
+                for (let i = 0; i < payload.length; i++) {
+                    const byte = payload.charCodeAt(i);
+                    crc ^= (byte << 8);
+                    for (let j = 0; j < 8; j++) {
+                        crc = (crc & 0x8000) ? (crc << 1) ^ polynomial : crc << 1;
+                    }
+                }
+                return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+            };
+
+            const payload = getPayload(pixKey, transactionId, value, name, city);
+            const checksum = crc16(payload);
+
+            return `${payload}${checksum}`;
+        }
+
+        // FUNÇÃO PARA GERAR O QR CODE DE TESTE
+        function gerarTeste() {
+            document.getElementById('qrcode').innerHTML = '';
+
+            // --- DADOS DE TESTE (ALTERE A CHAVE PIX) ---
+            const chavePixTeste = '06088586508'; // <-- COLOQUE UMA CHAVE REAL SUA AQUI
+            const nomeTeste = 'Alexandre';
+            const cidadeTeste = 'SALVADOR';
+            const valorTeste = 1.50; // Valor baixo para teste
+            const idTeste = 'TESTE12345';
+            // ------------------------------------------
+
+            const pixCode = generatePixCode(chavePixTeste, nomeTeste, cidadeTeste, valorTeste, idTeste);
+
+            document.getElementById('pix-string').value = pixCode;
+
+            new QRCode(document.getElementById("qrcode"), {
+                text: pixCode,
+                width: 256,
+                height: 256,
+            });
+
+            console.log("Código PIX gerado para teste:", pixCode);
+        }
+    </script>
+</body>
+</html>
