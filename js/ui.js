@@ -260,13 +260,77 @@ export function renderPixModal(gift, weddingDetails) {
 }
 
 function generatePixCode(pixKey, name, city, value, transactionId) {
-    function crc16(data){let crc=0xFFFF;for(let i=0;i<data.length;i++){crc^=data.charCodeAt(i)<<8;for(let j=0;j<8;j++){crc=(crc&0x8000)?(crc<<1)^0x1021:crc<<1;crc&=0xFFFF;}}return crc.toString(16).toUpperCase().padStart(4,'0');}
-    function formatField(id,value){const length=value.length.toString().padStart(2,'0');return id+length+value;}
-    const sanitizedName=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").substring(0,25);
-    const sanitizedCity=city.normalize("NFD").replace(/[\u0300-\u036f]/g,"").substring(0,15);
-    const sanitizedTxId=(transactionId||'***').replace(/\s/g,'').substring(0,25);
-    let pixString='';pixString+=formatField('00','01');let merchantInfo=formatField('00','BR.GOV.BCB.PIX')+formatField('01',pixKey);pixString+=formatField('26',merchantInfo);pixString+=formatField('52','0000');pixString+=formatField('53','986');if(value&&value>0){pixString+=formatField('54',value.toFixed(2));}
-    pixString+=formatField('58','BR');pixString+=formatField('59',sanitizedName);pixString+=formatField('60',sanitizedCity);let additionalData=formatField('05',sanitizedTxId);pixString+=formatField('62',additionalData);pixString+='6304';const crc=crc16(pixString);pixString+=crc;return pixString;
+    /**
+     * Função para calcular o CRC16-CCITT-FALSE, padrão do PIX.
+     * @param {string} data - A string de dados para calcular o CRC.
+     * @returns {string} O CRC16 calculado como uma string hexadecimal de 4 caracteres.
+     */
+    function crc16_ccitt_false(data) {
+        let crc = 0xFFFF;
+        const polynomial = 0x1021;
+
+        for (let i = 0; i < data.length; i++) {
+            let byte = data.charCodeAt(i);
+            crc ^= (byte << 8);
+            for (let j = 0; j < 8; j++) {
+                if ((crc & 0x8000) !== 0) {
+                    crc = ((crc << 1) ^ polynomial);
+                } else {
+                    crc = (crc << 1);
+                }
+            }
+        }
+        // Garante que o resultado final seja um número de 16 bits
+        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    /**
+     * Formata um campo do PIX com ID, tamanho e valor.
+     * @param {string} id - O ID do campo (ex: '00', '53').
+     * @param {string} value - O valor do campo.
+     * @returns {string} O campo formatado.
+     */
+    function formatField(id, value) {
+        const length = value.length.toString().padStart(2, '0');
+        return id + length + value;
+    }
+
+    // Normaliza e limita os campos de texto conforme a especificação do PIX
+    const sanitizedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25);
+    const sanitizedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15);
+    const sanitizedTxId = (transactionId || '***').replace(/\s/g, '').substring(0, 25);
+
+    // Monta a string principal do PIX
+    let pixString = '';
+    pixString += formatField('00', '01'); // Payload Format Indicator
+
+    // Merchant Account Information
+    const merchantInfo = formatField('00', 'BR.GOV.BCB.PIX') + formatField('01', pixKey);
+    pixString += formatField('26', merchantInfo);
+    
+    pixString += formatField('52', '0000'); // Merchant Category Code
+    pixString += formatField('53', '986');  // Transaction Currency (BRL)
+    
+    if (value && value > 0) {
+        pixString += formatField('54', value.toFixed(2)); // Transaction Amount
+    }
+    
+    pixString += formatField('58', 'BR'); // Country Code
+    pixString += formatField('59', sanitizedName); // Merchant Name
+    pixString += formatField('60', sanitizedCity); // Merchant City
+
+    // Additional Data Field Template
+    const additionalData = formatField('05', sanitizedTxId);
+    pixString += formatField('62', additionalData);
+
+    // Adiciona o campo do CRC (ID e tamanho) antes de calcular
+    pixString += '6304';
+
+    // Calcula o CRC e o anexa à string
+    const crc = crc16_ccitt_false(pixString);
+    pixString += crc;
+
+    return pixString;
 }
 
 export function togglePixModal(show) { document.getElementById('pix-modal').classList.toggle('hidden', !show); }
