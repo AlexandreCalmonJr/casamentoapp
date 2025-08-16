@@ -4,6 +4,24 @@ import { adminEmails } from './config.js';
 import * as Firebase from './firebase-service.js';
 import * as UI from './ui.js';
 
+
+// Variável para guardar o evento de instalação
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Impede que o mini-infobar apareça no Chrome
+  e.preventDefault();
+  // Guarda o evento para que possa ser acionado mais tarde.
+  deferredPrompt = e;
+  // Mostra nosso botão de instalação personalizado
+  const installButton = document.getElementById('install-pwa-button');
+  if (installButton) {
+    installButton.classList.remove('hidden');
+  }
+});
+
+
+
 const appState = {
     currentView: 'home',
     currentUser: null,
@@ -433,6 +451,32 @@ async function initApp() {
                 .catch((err) => console.log('Service worker não registrado.', err));
         });
     }
+
+    const installButton = document.getElementById('install-pwa-button');
+    if (installButton) {
+        installButton.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                // Mostra o prompt de instalação
+                deferredPrompt.prompt();
+                // Espera o usuário responder ao prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                // O evento só pode ser usado uma vez, então o limpamos.
+                deferredPrompt = null;
+                // Esconde o botão após a interação
+                installButton.classList.add('hidden');
+            }
+        });
+    }
+
+    // Ocultar o botão se o app já estiver instalado
+    window.addEventListener('appinstalled', () => {
+        console.log('App instalado com sucesso!');
+        deferredPrompt = null;
+        if (installButton) {
+            installButton.classList.add('hidden');
+        }
+    });
 
     try {
         appState.weddingDetails = await Firebase.getWeddingDetails();
