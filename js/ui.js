@@ -250,7 +250,13 @@ export function renderPixModal(gift, weddingDetails) {
     pixContainer.innerHTML = `<div class="flex justify-center items-center p-10"><i class="fas fa-spinner fa-spin text-3xl text-primary"></i></div>`;
     togglePixModal(true);
     try {
-        const pixCode = generatePixCode(weddingDetails.pixKey, weddingDetails.coupleNames, 'SALVADOR', parseFloat(gift.price), `GIFT-${gift.id}`);
+        const pixCode = generatePixCode(
+            weddingDetails.pixKey,
+            'casar',
+            'SALVADOR',                 // Cidade
+            parseFloat(gift.price),     // Garante que o valor é um número
+            gift.id                      // ID da transação`
+        );
         pixContainer.innerHTML = `<div class="text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2><p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p><div id="qr-placeholder" class="flex justify-center p-2 bg-white rounded-lg mx-auto mb-4 w-[208px] h-[208px]"></div><p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p><div class="mt-6"><p class="text-sm font-medium mb-2">1. Abra a app do seu banco e aponte a câmara para o QR Code.</p><p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p><div class="flex items-center"><input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md"><button id="copy-pix-button" aria-label="Copiar código PIX" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button></div></div><div class="mt-8 border-t dark:border-gray-700 pt-4"><p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente.</p><button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"><i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!</button></div></div>`;
         setTimeout(() => { generateQRCode(pixCode); }, 100);
     } catch (error) {
@@ -259,7 +265,7 @@ export function renderPixModal(gift, weddingDetails) {
     }
 }
 
-function generatePixCode(pixKey, name, city, value, transactionId) {
+function generatePixCode(pixKey, receiverName, city, amount, transactionId) {
     const format = (id, val) => {
         const len = val.length.toString().padStart(2, '0');
         return `${id}${len}${val}`;
@@ -289,7 +295,6 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
     const crc16 = (payload) => {
         let crc = 0xFFFF;
         const polynomial = 0x1021;
-
         for (let i = 0; i < payload.length; i++) {
             const byte = payload.charCodeAt(i);
             crc ^= (byte << 8);
@@ -300,7 +305,7 @@ function generatePixCode(pixKey, name, city, value, transactionId) {
         return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
     };
 
-    const payload = getPayload(pixKey, transactionId, value, name, city);
+    const payload = getPayload(pixKey, transactionId, amount, receiverName, city);
     const checksum = crc16(payload);
 
     return `${payload}${checksum}`;
