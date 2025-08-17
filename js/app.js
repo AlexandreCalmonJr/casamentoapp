@@ -31,7 +31,8 @@ const appState = {
     guestbookUnsubscribe: null,
     giftListUnsubscribe: null,
     rankingUnsubscribe: null,
-    weddingDetails: null
+    weddingDetails: null,
+    timelineEvents: [] // NOVO
 };
 
 function initializeDarkMode() {
@@ -246,7 +247,12 @@ async function handleRsvpUpdate(event) {
 }
 
 function setupNavListeners() {
-    document.querySelectorAll('.nav-button').forEach(button => button.addEventListener('click', (e) => handleNavigation(e.currentTarget.dataset.view)));
+    document.getElementById('nav-buttons-container').addEventListener('click', (e) => {
+        const button = e.target.closest('.nav-button');
+        if (button && button.dataset.view) {
+            handleNavigation(button.dataset.view);
+        }
+    });
 }
 
 function setupAuthFormListeners() {
@@ -262,9 +268,14 @@ function setupAuthFormListeners() {
     document.getElementById('apple-signup-button')?.addEventListener('click', (e) => handleSocialSignup('apple', e.currentTarget));
 }
 
-function setupViewSpecificListeners() {
+async function setupViewSpecificListeners() {
     cleanupListeners();
-    if (appState.currentView === 'home' && appState.weddingDetails) appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
+    if (appState.currentView === 'home' && appState.weddingDetails) {
+        appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
+        if (appState.weddingDetails.carouselPhotos && appState.weddingDetails.carouselPhotos.length > 0) {
+            UI.initializeCarousel();
+        }
+    }
     
     if (appState.currentView === 'guest-photos' && appState.currentUser) {
         document.getElementById('upload-button')?.addEventListener('click', handlePhotoUploadClick);
@@ -275,6 +286,14 @@ function setupViewSpecificListeners() {
         document.getElementById('open-login-button')?.addEventListener('click', () => { UI.renderAuthForm('login'); setupAuthFormListeners(); });
         if (appState.currentUser) document.getElementById('guestbook-form')?.addEventListener('submit', handleGuestbookSubmit);
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
+    }
+
+    // NOVO: Busca os dados da timeline quando a view é acessada
+    if (appState.currentView === 'about-us' && appState.currentUser) {
+        if(appState.timelineEvents.length === 0) { // Busca apenas se não tiver sido buscado antes
+            appState.timelineEvents = await Firebase.getTimelineEvents();
+        }
+        UI.renderTimeline(appState.timelineEvents);
     }
 
     if (appState.currentView === 'activities' && appState.currentUser) {
@@ -346,23 +365,21 @@ function renderCurrentView() {
     setupViewSpecificListeners();
 }
 
-// ATUALIZADO: Lógica de busca de dados do usuário simplificada e corrigida
 async function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
     const activitiesButton = document.getElementById('activities-nav-button');
+    const aboutUsButton = document.getElementById('about-us-nav-button'); // NOVO
     const rsvpNavText = document.getElementById('rsvp-nav-text');
 
     if (activitiesButton) activitiesButton.classList.toggle('hidden', !user);
+    if (aboutUsButton) aboutUsButton.classList.toggle('hidden', !user); // NOVO
     if (rsvpNavText) rsvpNavText.textContent = user ? 'Portal' : 'Acesso';
 
     if (!container) return;
 
-    // Lógica melhorada para buscar/limpar dados do convite
     if (user) {
         try {
-            console.log('Buscando informações da chave para usuário:', user.uid);
             const keyInfo = await Firebase.findAccessKeyForUser(user.uid);
-            console.log('Informações da chave encontradas:', keyInfo);
             appState.accessKeyInfo = keyInfo;
         } catch (error) {
             console.error('Erro ao buscar informações da chave:', error);
@@ -372,7 +389,6 @@ async function updateUserArea(user) {
         appState.accessKeyInfo = null;
     }
 
-    // Lógica para renderizar o cabeçalho
     container.innerHTML = ''; 
     if (user) {
         const welcomeText = document.createElement('span');
@@ -456,20 +472,15 @@ async function initApp() {
     if (installButton) {
         installButton.addEventListener('click', async () => {
             if (deferredPrompt) {
-                // Mostra o prompt de instalação
                 deferredPrompt.prompt();
-                // Espera o usuário responder ao prompt
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
-                // O evento só pode ser usado uma vez, então o limpamos.
                 deferredPrompt = null;
-                // Esconde o botão após a interação
                 installButton.classList.add('hidden');
             }
         });
     }
 
-    // Ocultar o botão se o app já estiver instalado
     window.addEventListener('appinstalled', () => {
         console.log('App instalado com sucesso!');
         deferredPrompt = null;
@@ -496,14 +507,13 @@ async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
-        const validViews = ['home', 'details', 'guest-photos', 'activities', 'guestbook', 'gifts', 'rsvp'];
+        const validViews = ['home', 'details', 'guest-photos', 'activities', 'guestbook', 'gifts', 'rsvp', 'about-us'];
         appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
         Firebase.auth.onAuthStateChanged(async (user) => {
             console.log('Auth state changed:', user ? user.uid : 'null');
             appState.currentUser = user;
             
-            // Aguarda a atualização da área do usuário antes de continuar
             await updateUserArea(user);
 
             if (keyFromUrl && !user) {
@@ -534,8 +544,6 @@ async function initApp() {
                 UI.toggleAuthModal(false);
             }
             
-            console.log('Renderizando view atual:', appState.currentView);
-            console.log('AccessKeyInfo:', appState.accessKeyInfo);
             renderCurrentView();
         });
         

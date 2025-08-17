@@ -22,7 +22,8 @@ export function showToast(message, type = 'success') {
 
 function getOptimizedCloudinaryUrl(url, transformations = 'w_400,h_400,c_fill,q_auto') {
     if (!url || !url.includes('res.cloudinary.com')) return url || `https://placehold.co/400x300/EEE/31343C?text=Presente`;
-    return url.replace('/image/upload/', `/image/upload/${transformations}/`);
+    // Adiciona uma transformação de 'f_auto' para servir o melhor formato de imagem (ex: webp)
+    return url.replace('/image/upload/', `/image/upload/${transformations},f_auto/`);
 }
 
 export function setButtonLoading(button, isLoading) {
@@ -37,6 +38,34 @@ export function setButtonLoading(button, isLoading) {
     }
 }
 
+// NOVO: Função para renderizar o carrossel
+function renderCarousel(photos) {
+    if (!photos || photos.length === 0) return '';
+    
+    const slides = photos.map(photo => `
+        <div class="carousel-slide">
+            <img src="${getOptimizedCloudinaryUrl(photo, 'w_800,h_600,c_fill,q_auto')}" class="w-full h-full object-cover" alt="Foto do casal">
+        </div>
+    `).join('');
+
+    const dots = photos.map((_, index) => `<div class="carousel-dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`).join('');
+
+    return `
+        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-2 mb-8">
+            <div id="carousel-container" class="carousel-container rounded-lg aspect-[4/3] relative">
+                <div id="carousel-track" class="carousel-track h-full">
+                    ${slides}
+                </div>
+                ${photos.length > 1 ? `
+                    <button class="carousel-button prev"><i class="fas fa-chevron-left"></i></button>
+                    <button class="carousel-button next"><i class="fas fa-chevron-right"></i></button>
+                    <div class="carousel-dots">${dots}</div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
 export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) {
     if (!weddingDetails) return `<div class="text-center p-8"><div class="animate-pulse"><div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div><div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div></div></div>`;
 
@@ -47,11 +76,48 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
 
     switch (viewName) {
         case 'home':
-            return `<div class="space-y-8 text-center"><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8"><h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">${weddingDetails.coupleNames}</h1><p class="text-gray-600 dark:text-gray-400">Temos a honra de convidar para a celebração do nosso amor!</p></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2><div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div></div></div>`;
+            return `
+                <div class="space-y-8 text-center">
+                    ${renderCarousel(weddingDetails.carouselPhotos)}
+                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8">
+                        <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">${weddingDetails.coupleNames}</h1>
+                        <p class="text-gray-600 dark:text-gray-400">Temos a honra de convidar para a celebração do nosso amor!</p>
+                    </div>
+                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                        <h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2>
+                        <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
+                    </div>
+                </div>`;
         
         case 'details':
-            return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Detalhes do Evento</h1></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Cerimônia</h3><div class="flex items-center"><i class="fas fa-calendar-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatDate(weddingDetails.weddingDate)}</span></div><div class="flex items-center"><i class="fas fa-clock fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatTime(weddingDetails.weddingDate)}h</span></div><div class="flex items-center"><i class="fas fa-map-marker-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.venue}</span></div><div class="flex items-center"><i class="fas fa-user-tie fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>Traje: ${weddingDetails.dressCode}</span></div></div>${weddingDetails.restaurantName ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3><div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div><div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress}</span></div><div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo}</span></div>${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}</div>` : ''}</div>`;
+            // NOVO: Adiciona a foto do local da cerimônia
+            const venuePhotoHTML = weddingDetails.venuePhoto 
+                ? `<img src="${getOptimizedCloudinaryUrl(weddingDetails.venuePhoto, 'w_800,c_fill,q_auto')}" alt="Local da Cerimônia" class="w-full h-auto rounded-lg mb-6 shadow-md">` 
+                : '';
+
+            return `<div class="space-y-6">
+                <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Detalhes do Evento</h1></div>
+                ${venuePhotoHTML}
+                <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4">
+                    <h3 class="text-lg font-semibold border-b pb-2 mb-3">Cerimônia</h3>
+                    <div class="flex items-center"><i class="fas fa-calendar-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatDate(weddingDetails.weddingDate)}</span></div>
+                    <div class="flex items-center"><i class="fas fa-clock fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${formatTime(weddingDetails.weddingDate)}h</span></div>
+                    <div class="flex items-center"><i class="fas fa-map-marker-alt fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.venue}</span></div>
+                    <div class="flex items-center"><i class="fas fa-user-tie fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>Traje: ${weddingDetails.dressCode}</span></div>
+                </div>
+                ${weddingDetails.restaurantName ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3><div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div><div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress}</span></div><div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo}</span></div>${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}</div>` : ''}
+            </div>`;
         
+        // NOVO: View da Timeline
+        case 'about-us':
+            if (!user) {
+                return `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Nossa História</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa timeline, por favor, faça o login na aba "Acesso".</p></div>`;
+            }
+            return `<div class="space-y-6">
+                <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Nossa História</h1></div>
+                <div id="timeline-container"></div>
+            </div>`;
+
         case 'guest-photos':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center mb-4">Olá, ${user.displayName}! Compartilhe seus registros.</p><div class="flex flex-col sm:flex-row items-center gap-4"><input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/><button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button></div><div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2><ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300"><li>Uma foto com alguém que você acabou de conhecer</li><li>Uma foto do seu detalhe favorito da decoração</li><li>Uma selfie com os noivos</li><li>A foto mais divertida do casamento!</li></ul></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Galeria Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver e enviar fotos, por favor, faça o login na aba "Acesso".</p></div>`}<div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>`;
 
@@ -67,7 +133,6 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
         case 'gifts':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Lista de Presentes</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sua presença é o nosso maior presente! Mas se desejar nos presentear, preparamos com carinho esta lista de sugestões.</p><div id="gift-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Lista Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa lista de presentes, por favor, faça o login na aba "Acesso".</p></div>`}</div>`;
         
-        // ATUALIZADO: Botão de Manual de Vestimentas condicional
         case 'rsvp':
             if (user && accessKeyInfo) {
                 const { guestName, allowedGuests, willAttendRestaurant, role } = accessKeyInfo.data;
@@ -137,6 +202,55 @@ export function updateCountdown(weddingDate) {
     return intervalId;
 }
 
+// NOVO: Função para inicializar a lógica do carrossel
+export function initializeCarousel() {
+    const container = document.getElementById('carousel-container');
+    if (!container) return;
+
+    const track = container.querySelector('#carousel-track');
+    const slides = Array.from(track.children);
+    const nextButton = container.querySelector('.next');
+    const prevButton = container.querySelector('.prev');
+    const dotsNav = container.querySelector('.carousel-dots');
+    const dots = dotsNav ? Array.from(dotsNav.children) : [];
+
+    if (slides.length <= 1) return;
+
+    const slideWidth = slides[0].getBoundingClientRect().width;
+    let currentIndex = 0;
+
+    const moveToSlide = (targetIndex) => {
+        track.style.transform = 'translateX(-' + slideWidth * targetIndex + 'px)';
+        dots[currentIndex]?.classList.remove('active');
+        dots[targetIndex]?.classList.add('active');
+        currentIndex = targetIndex;
+    };
+
+    nextButton.addEventListener('click', () => {
+        const nextIndex = (currentIndex + 1) % slides.length;
+        moveToSlide(nextIndex);
+    });
+
+    prevButton.addEventListener('click', () => {
+        const prevIndex = (currentIndex - 1 + slides.length) % slides.length;
+        moveToSlide(prevIndex);
+    });
+
+    dotsNav.addEventListener('click', e => {
+        const targetDot = e.target.closest('.carousel-dot');
+        if (!targetDot) return;
+        const targetIndex = parseInt(targetDot.dataset.index);
+        moveToSlide(targetIndex);
+    });
+    
+    // Auto-play
+    setInterval(() => {
+        const nextIndex = (currentIndex + 1) % slides.length;
+        moveToSlide(nextIndex);
+    }, 5000); // Muda a cada 5 segundos
+}
+
+
 export function renderGuestPhotos(photos) {
     const gallery = document.getElementById('photo-gallery');
     if (!gallery) return;
@@ -149,6 +263,36 @@ export function renderGuestPhotos(photos) {
     } else {
         gallery.innerHTML = photos.map(photo => `<div class="aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden group"><a href="${photo.imageUrl}" target="_blank" aria-label="Ver foto de ${photo.userName || 'Convidado'} em tamanho real"><img src="${getOptimizedCloudinaryUrl(photo.imageUrl)}" alt="Foto de ${photo.userName || 'Convidado'}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'flex items-center justify-center h-full text-gray-400\\'>Erro</div>'"></a></div>`).join('');
     }
+}
+
+// NOVO: Função para renderizar a timeline
+export function renderTimeline(events) {
+    const container = document.getElementById('timeline-container');
+    if (!container) return;
+
+    if (!events || events.length === 0) {
+        container.innerHTML = `<div class="text-center p-8 bg-light-card dark:bg-dark-card rounded-xl"><p class="text-gray-500">Nossa história está sendo escrita... Volte em breve!</p></div>`;
+        return;
+    }
+
+    container.innerHTML = `<div class="relative border-l-2 border-primary/20 dark:border-dark-primary/20 ml-6 space-y-12">` +
+        events.map(event => {
+            const formattedDate = new Date(event.date).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+            const imageHTML = event.imageUrl ? `<img src="${getOptimizedCloudinaryUrl(event.imageUrl, 'w_600,c_fill,q_auto')}" alt="${event.title}" class="rounded-lg shadow-lg mt-4">` : '';
+
+            return `
+            <div class="ml-6">
+                <span class="absolute -left-[1.8rem] flex items-center justify-center w-12 h-12 bg-primary rounded-full ring-8 ring-light-background dark:ring-dark-background">
+                    <i class="fas fa-heart text-white text-xl"></i>
+                </span>
+                <div class="bg-light-card dark:bg-dark-card p-6 rounded-lg shadow-md">
+                    <time class="block mb-2 text-sm font-normal leading-none text-gray-400 dark:text-gray-500">${formattedDate}</time>
+                    <h3 class="text-2xl font-serif font-semibold text-gray-900 dark:text-white mb-2">${event.title}</h3>
+                    <p class="text-base font-normal text-gray-600 dark:text-gray-300">${event.description}</p>
+                    ${imageHTML}
+                </div>
+            </div>`;
+        }).join('') + `</div>`;
 }
 
 export function renderGuestbookMessages(messages) {

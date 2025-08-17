@@ -82,6 +82,9 @@ async function handleSaveDetails(event) {
         dressCodePalettes[groupName] = colors;
     });
 
+    // NOVO: Coleta das URLs das fotos do carrossel
+    const carouselPhotos = Array.from(document.querySelectorAll('#carousel-photos-preview img')).map(img => img.src);
+
     const updatedDetails = {
         coupleNames: document.getElementById('form-couple-names').value,
         weddingDate: new Date(document.getElementById('form-wedding-date').value),
@@ -94,7 +97,9 @@ async function handleSaveDetails(event) {
         restaurantMapsLink: document.getElementById('form-restaurant-mapslink').value,
         pixKey: document.getElementById('form-pix-key').value.trim(),
         whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim(),
-        dressCodePalettes: dressCodePalettes
+        dressCodePalettes: dressCodePalettes,
+        carouselPhotos: carouselPhotos, // NOVO
+        venuePhoto: document.getElementById('form-venue-photo').value.trim() // NOVO
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
@@ -171,6 +176,43 @@ async function handleEditGift(event) {
         UI.closeEditModal();
     });
 }
+
+// NOVO: Funções de CRUD para a Timeline
+async function handleAddTimelineEvent(event) {
+    event.preventDefault();
+    const form = event.target;
+    const button = form.querySelector('button[type="submit"]');
+    UI.setButtonLoading(button, true);
+    const date = document.getElementById('timeline-date').value;
+    const title = document.getElementById('timeline-title').value;
+    const description = document.getElementById('timeline-description').value;
+    const imageUrl = document.getElementById('timeline-image-url').value;
+    
+    await db.collection('timeline').add({ date, title, description, imageUrl, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    
+    UI.setButtonLoading(button, false);
+    form.reset();
+}
+
+async function handleEditTimelineEvent(event) {
+    const eventId = event.currentTarget.dataset.id;
+    const eventDoc = await db.collection('timeline').doc(eventId).get();
+    if (!eventDoc.exists) return;
+    
+    UI.showEditTimelineEventModal(eventDoc.data(), async (updatedData) => {
+        await db.collection('timeline').doc(eventId).update(updatedData);
+        UI.closeEditModal();
+    });
+}
+
+async function handleDeleteTimelineEvent(event) {
+    const eventId = event.currentTarget.dataset.id;
+    const confirmed = await UI.showConfirmationModal({ title: 'Apagar Evento', message: 'Tem certeza que deseja apagar este evento da timeline?' });
+    if (confirmed) {
+        await db.collection('timeline').doc(eventId).delete();
+    }
+}
+
 
 async function handleDeleteKey(event) {
     const keyId = event.currentTarget.dataset.id;
@@ -270,6 +312,38 @@ function setupPaletteEditorListeners() {
     });
 }
 
+// NOVO: Listeners para gerenciar fotos na página de configurações
+function setupDetailsPhotoListeners() {
+    const addCarouselBtn = document.getElementById('add-carousel-photo-btn');
+    const previewContainer = document.getElementById('carousel-photos-preview');
+
+    if (addCarouselBtn) {
+        addCarouselBtn.addEventListener('click', () => {
+            const input = document.getElementById('new-carousel-photo-url');
+            const url = input.value.trim();
+            if (url) {
+                const newIndex = previewContainer.children.length;
+                const newPhotoHTML = `
+                    <div class="relative group">
+                        <img src="${url}" class="w-24 h-24 object-cover rounded-md">
+                        <button type="button" class="delete-carousel-photo-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100" data-index="${newIndex}">&times;</button>
+                    </div>`;
+                previewContainer.insertAdjacentHTML('beforeend', newPhotoHTML);
+                input.value = '';
+            }
+        });
+    }
+
+    if (previewContainer) {
+        previewContainer.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-carousel-photo-btn')) {
+                e.target.closest('.relative.group').remove();
+            }
+        });
+    }
+}
+
+
 async function loadTab(tabName) {
     state.currentTab = tabName;
     UI.setActiveSidebarLink(tabName);
@@ -281,8 +355,8 @@ async function loadTab(tabName) {
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
+        setupDetailsPhotoListeners(); // NOVO
         
-        // ATIVAÇÃO DA GERAÇÃO DE PDF
         const pdfGenerator = new PDFGenerator();
         document.querySelectorAll('[id^="preview-pdf-"]').forEach(button => {
             button.addEventListener('click', async (e) => {
@@ -310,6 +384,17 @@ async function loadTab(tabName) {
         };
         state.unsubscribe.keys = db.collection('accessKeys').orderBy('createdAt', 'desc').onSnapshot(snap => renderKeys(snap.docs));
         searchInput.addEventListener('input', () => db.collection('accessKeys').orderBy('createdAt', 'desc').get().then(snap => renderKeys(snap.docs)));
+    
+    // NOVO: Lógica para a aba Timeline
+    } else if (tabName === 'timeline') {
+        DOMElements.tabContent.innerHTML = UI.renderTimelineManager();
+        document.getElementById('add-timeline-event-form').addEventListener('submit', handleAddTimelineEvent);
+        state.unsubscribe.timeline = db.collection('timeline').orderBy('date', 'desc').onSnapshot(snap => {
+            UI.updateTimelineEventsList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            document.querySelectorAll('.edit-timeline-event-btn').forEach(btn => btn.addEventListener('click', handleEditTimelineEvent));
+            document.querySelectorAll('.delete-timeline-event-btn').forEach(btn => btn.addEventListener('click', handleDeleteTimelineEvent));
+        });
+
     } else if (tabName === 'report') {
         DOMElements.tabContent.innerHTML = UI.renderGuestsReport();
         const searchInput = document.getElementById('search-report-input');
