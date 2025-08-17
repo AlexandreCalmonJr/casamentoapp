@@ -29,6 +29,41 @@ export function signInWithApple() {
     return auth.signInWithPopup(provider);
 }
 
+export async function uploadFileToCloudinary(file, onProgress) {
+    const url = `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', cloudinaryConfig.uploadPreset);
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url, true);
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && onProgress) {
+                const progress = (event.loaded / event.total) * 100;
+                onProgress(progress);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                const data = JSON.parse(xhr.responseText);
+                resolve(data.secure_url);
+            } else {
+                reject(new Error('Upload para Cloudinary falhou: ' + xhr.statusText));
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Erro de rede durante o upload.'));
+        };
+
+        xhr.send(formData);
+    });
+}
+
+
 // --- Funções de Gamificação ---
 export async function incrementEngagementScore(user, type, points) {
     if (!user) return;
@@ -100,6 +135,17 @@ export async function getWeddingDetails() {
     } catch (error) {
         console.error("Error fetching wedding details:", error);
         return null;
+    }
+}
+
+// NOVO: Função para buscar os eventos da Timeline
+export async function getTimelineEvents() {
+    try {
+        const snapshot = await db.collection('timeline').orderBy('date', 'asc').get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching timeline events:", error);
+        return [];
     }
 }
 

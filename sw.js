@@ -1,4 +1,6 @@
-const CACHE_NAME = 'casamento-app-v4';
+// sw.js
+
+const CACHE_NAME = 'casamento-app-v5'; // Versão do cache incrementada
 // Lista de arquivos essenciais para o funcionamento offline do app.
 const FILES_TO_CACHE = [
   '/',
@@ -41,12 +43,30 @@ self.addEventListener('activate', (evt) => {
   self.clients.claim();
 });
 
-// Evento de fetch: intercepta as requisições e serve do cache primeiro.
+// Evento de fetch: implementa a estratégia Stale-While-Revalidate
 self.addEventListener('fetch', (evt) => {
+  // Ignora requisições que não são GET
+  if (evt.request.method !== 'GET') {
+    return;
+  }
+
   evt.respondWith(
-    caches.match(evt.request).then((response) => {
-      // Se a resposta estiver no cache, retorna ela. Senão, busca na rede.
-      return response || fetch(evt.request);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cachedResponse = await cache.match(evt.request);
+
+      const fetchPromise = fetch(evt.request).then((networkResponse) => {
+        // Se a requisição for bem-sucedida, atualiza o cache
+        if (networkResponse.ok) {
+            cache.put(evt.request, networkResponse.clone());
+        }
+        return networkResponse;
+      }).catch(err => {
+        console.error('[ServiceWorker] Fetch falhou:', err);
+      });
+
+      // Retorna o conteúdo do cache imediatamente se disponível,
+      // enquanto a rede busca a atualização em segundo plano.
+      return cachedResponse || fetchPromise;
     })
   );
 });

@@ -6,7 +6,7 @@ function getOptimizedCloudinaryUrl(url) {
     if (!url || !url.includes('res.cloudinary.com')) {
         return url || 'https://placehold.co/400x400/EEE/31343C?text=Foto';
     }
-    return url.replace('/image/upload/', '/image/upload/w_400,h_400,c_fill,q_auto/');
+    return url.replace('/image/upload/', '/image/upload/w_400,h_400,c_fill,q_auto,f_auto/');
 }
 
 export function setButtonLoading(button, isLoading) {
@@ -117,6 +117,20 @@ export function showEditGiftModal(giftData, onSave) {
     });
 }
 
+// NOVO: Modal para editar evento da timeline
+export function showEditTimelineEventModal(eventData, onSave) {
+    const formContent = `
+        <div><label class="block text-sm font-medium">Data do Evento</label><input type="date" name="date" value="${eventData.date || ''}" class="w-full mt-1 p-2 border rounded" required></div>
+        <div><label class="block text-sm font-medium">Título</label><input type="text" name="title" value="${eventData.title || ''}" class="w-full mt-1 p-2 border rounded" required></div>
+        <div><label class="block text-sm font-medium">Descrição</label><textarea name="description" class="w-full mt-1 p-2 border rounded" rows="3">${eventData.description || ''}</textarea></div>
+        <div><label class="block text-sm font-medium">URL da Imagem (opcional)</label><input type="url" name="imageUrl" value="${eventData.imageUrl || ''}" class="w-full mt-1 p-2 border rounded"></div>
+        <div class="flex justify-end space-x-3 pt-4">
+            <button type="button" class="cancel-edit-btn py-2 px-4 bg-gray-200 rounded">Cancelar</button>
+            <button type="submit" class="py-2 px-4 bg-indigo-600 text-white rounded">Salvar</button>
+        </div>
+    `;
+    showEditModal(`Editar Evento da Timeline`, formContent, onSave);
+}
 
 // --- Funções de Renderização do Layout ---
 
@@ -128,6 +142,7 @@ export function renderSidebarNav() {
     const navItems = [
         { tab: 'report', icon: 'fa-chart-pie', label: 'Relatório' },
         { tab: 'keys', icon: 'fa-key', label: 'Convites' },
+        { tab: 'timeline', icon: 'fa-calendar-alt', label: 'Timeline' }, // NOVO: Link da Timeline
         { tab: 'guestbook', icon: 'fa-book-open', label: 'Recados' },
         { tab: 'gifts', icon: 'fa-gift', label: 'Presentes' },
         { tab: 'admin-gallery', icon: 'fa-images', label: 'Galeria' },
@@ -208,20 +223,57 @@ export function renderDetailsEditor(details) {
         </div>
     `;
 
+    // NOVO: HTML para gerenciamento de fotos do carrossel e igreja
+    const carouselPhotosHTML = (details.carouselPhotos || []).map((url, index) => `
+        <div class="relative group">
+            <img src="${getOptimizedCloudinaryUrl(url)}" class="w-24 h-24 object-cover rounded-md" data-url="${url}">
+            <button type="button" class="delete-carousel-photo-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100">&times;</button>
+        </div>
+    `).join('');
+
     return `
         <div class="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto space-y-6">
-            <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Configurações Gerais</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label class="block text-sm font-medium">Nomes do Casal</label><input type="text" id="form-couple-names" value="${details.coupleNames || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDateISO}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDateISO}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Local da Cerimônia</label><input type="text" id="form-venue" value="${details.venue || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Dress Code</label><input type="text" id="form-dress-code" value="${details.dressCode || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Nome do Restaurante</label><input type="text" id="form-restaurant-name" value="${details.restaurantName || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Endereço do Restaurante</label><input type="text" id="form-restaurant-address" value="${details.restaurantAddress || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div><label class="block text-sm font-medium">Informação de Valor</label><input type="text" id="form-restaurant-price" value="${details.restaurantPriceInfo || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div class="md:col-span-2"><label class="block text-sm font-medium">Link do Google Maps</label><input type="url" id="form-restaurant-mapslink" value="${details.restaurantMapsLink || ''}" class="w-full mt-1 p-2 border rounded"></div>
-                <div class="md:col-span-2"><label class="block text-sm font-medium">Sua Chave PIX</label><input type="text" id="form-pix-key" value="${details.pixKey || ''}" class="w-full mt-1 p-2 border rounded" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">Configurações Gerais</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div><label class="block text-sm font-medium">Nomes do Casal</label><input type="text" id="form-couple-names" value="${details.coupleNames || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Data e Hora</label><input type="datetime-local" id="form-wedding-date" value="${weddingDateISO}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Data Limite para RSVP</label><input type="date" id="form-rsvp-date" value="${rsvpDateISO}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Local da Cerimônia</label><input type="text" id="form-venue" value="${details.venue || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Dress Code</label><input type="text" id="form-dress-code" value="${details.dressCode || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Nome do Restaurante</label><input type="text" id="form-restaurant-name" value="${details.restaurantName || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Endereço do Restaurante</label><input type="text" id="form-restaurant-address" value="${details.restaurantAddress || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div><label class="block text-sm font-medium">Informação de Valor</label><input type="text" id="form-restaurant-price" value="${details.restaurantPriceInfo || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium">Link do Google Maps</label><input type="url" id="form-restaurant-mapslink" value="${details.restaurantMapsLink || ''}" class="w-full mt-1 p-2 border rounded"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium">Sua Chave PIX</label><input type="text" id="form-pix-key" value="${details.pixKey || ''}" class="w-full mt-1 p-2 border rounded" placeholder="CPF, e-mail, telefone ou chave aleatória"></div>
+                </div>
+            </div>
+
+            <div class="border-t pt-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Fotos e Mídia</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Fotos do Carrossel (Página Inicial)</label>
+                        <input type="file" id="carousel-photo-input" class="hidden" accept="image/*" multiple>
+                        <button type="button" onclick="document.getElementById('carousel-photo-input').click()" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            <i class="fas fa-upload mr-2"></i>Escolher Arquivos
+                        </button>
+                        <div id="carousel-upload-progress" class="mt-2"></div>
+                        <div id="carousel-photos-preview" class="flex flex-wrap gap-2 mt-2">${carouselPhotosHTML}</div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Foto da Igreja/Local (Página de Detalhes)</label>
+                        <input type="file" id="venue-photo-input" class="hidden" accept="image/*">
+                        <input type="hidden" id="form-venue-photo-url" value="${details.venuePhoto || ''}">
+                        <button type="button" onclick="document.getElementById('venue-photo-input').click()" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
+                             <i class="fas fa-camera mr-2"></i>Escolher Arquivo
+                        </button>
+                        <div id="venue-photo-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden"><div id="venue-photo-progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div></div>
+                        <div id="venue-photo-preview" class="mt-2">
+                            ${details.venuePhoto ? `<img src="${getOptimizedCloudinaryUrl(details.venuePhoto)}" class="rounded-lg max-w-xs shadow-md">` : ''}
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="border-t pt-4">
@@ -236,7 +288,7 @@ export function renderDetailsEditor(details) {
                 <p class="text-xs text-gray-500 mt-1">Use {nome_convidado}, {nomes_casal} e {link_convite} para personalização.</p>
             </div>
 
-            <button id="save-all-details-button" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700">Salvar Todas as Alterações</button>
+            <button id="save-all-details-button" class="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700">Salvar Todas as Alterações</button>
             <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
         </div>`;
 }
@@ -276,6 +328,36 @@ export function renderKeyManager() {
                 <div id="keys-list" class="max-h-[60vh] overflow-y-auto custom-scrollbar"></div>
             </div>
         </div>`;
+}
+
+// NOVO: Renderiza a página de gerenciamento da Timeline
+export function renderTimelineManager() {
+    return `
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Gerenciar Timeline do Casal</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit">
+                <h3 class="text-xl font-bold mb-4">Adicionar Novo Evento</h3>
+                <form id="add-timeline-event-form" class="space-y-4">
+                    <div><label class="block text-sm font-medium">Data</label><input type="date" id="timeline-date" class="w-full mt-1 p-2 border rounded" required></div>
+                    <div><label class="block text-sm font-medium">Título</label><input type="text" id="timeline-title" class="w-full mt-1 p-2 border rounded" required></div>
+                    <div><label class="block text-sm font-medium">Descrição</label><textarea id="timeline-description" class="w-full mt-1 p-2 border rounded" rows="4"></textarea></div>
+                    <div>
+                        <label class="block text-sm font-medium">Imagem (opcional)</label>
+                        <input type="file" id="timeline-image-input" class="hidden" accept="image/*">
+                        <input type="hidden" id="timeline-image-url">
+                        <button type="button" onclick="document.getElementById('timeline-image-input').click()" class="w-full mt-1 py-2 px-4 border border-dashed rounded hover:bg-gray-50">Escolher Imagem</button>
+                        <div id="timeline-image-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden"><div class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div></div>
+                        <div id="timeline-image-preview" class="mt-2"></div>
+                    </div>
+                    <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white rounded hover:bg-indigo-700">Adicionar Evento</button>
+                </form>
+            </div>
+            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-xl font-bold mb-4">Eventos da Timeline</h3>
+                <div id="timeline-events-list" class="max-h-[70vh] overflow-y-auto custom-scrollbar"></div>
+            </div>
+        </div>
+    `;
 }
 
 export function renderGuestsReport() {
@@ -445,6 +527,32 @@ export function updateGiftsAdminList(gifts) {
                 </div>
             </div>`;
     }).join('');
+}
+
+// NOVO: Atualiza a lista de eventos da timeline no admin
+export function updateTimelineEventsList(events) {
+    const listEl = document.getElementById('timeline-events-list');
+    if (!listEl) return;
+    if (events.length === 0) {
+        listEl.innerHTML = `<p class="text-center text-gray-500 p-4">Nenhum evento na timeline.</p>`;
+        return;
+    }
+    listEl.innerHTML = events.map(event => `
+        <div class="p-3 border-b flex justify-between items-start hover:bg-gray-50">
+            <div class="flex items-start">
+                ${event.imageUrl ? `<img src="${getOptimizedCloudinaryUrl(event.imageUrl)}" alt="${event.title}" class="w-16 h-16 object-cover rounded-md mr-4">` : ''}
+                <div>
+                    <p class="font-semibold text-gray-800">${event.title}</p>
+                    <p class="text-sm text-gray-500">${new Date(event.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
+                    <p class="text-xs text-gray-600 mt-1">${event.description || ''}</p>
+                </div>
+            </div>
+            <div class="flex space-x-2 flex-shrink-0 ml-4">
+                <button data-id="${event.id}" class="edit-timeline-event-btn text-gray-400 hover:text-blue-600" aria-label="Editar evento"><i class="fas fa-edit"></i></button>
+                <button data-id="${event.id}" class="delete-timeline-event-btn text-gray-400 hover:text-red-600" aria-label="Excluir evento"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
 }
 
 export function updateAdminGallery(photos) {
