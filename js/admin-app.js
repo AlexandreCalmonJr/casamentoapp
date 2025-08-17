@@ -99,7 +99,7 @@ async function handleSaveDetails(event) {
         whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim(),
         dressCodePalettes: dressCodePalettes,
         carouselPhotos: carouselPhotos, // NOVO
-        venuePhoto: document.getElementById('form-venue-photo').value.trim() // NOVO
+        venuePhoto: document.getElementById('form-venue-photo-url').value.trim()
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
