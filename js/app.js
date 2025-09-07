@@ -57,6 +57,16 @@ function cleanupListeners() {
     appState.countdownInterval = null;
 }
 
+// NOVA FUNÇÃO: Remove o parâmetro ?key= da URL
+function removeKeyFromUrl() {
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.has('key')) {
+        const newUrl = currentUrl.pathname + currentUrl.hash;
+        window.history.replaceState(history.state, '', newUrl);
+    }
+}
+
+
 async function handleAccessKeyValidation(key) {
     try {
         return await Firebase.validateAccessKey(key);
@@ -118,6 +128,7 @@ async function handleSignupSubmit(event) {
         const mainGuestName = guestNames[0];
         const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked')?.value === 'yes';
         await Firebase.signupUser({ name: mainGuestName, email, password, keyDocId: docId, guestNames, willAttendRestaurant });
+        removeKeyFromUrl(); // Limpa a URL após o cadastro
         UI.showToast(`Bem-vindo(a), ${mainGuestName}! Cadastro realizado.`, 'success');
     } catch (error) {
         console.error('Erro no cadastro:', error);
@@ -133,8 +144,6 @@ async function handleSocialLogin(provider, button) {
     try {
         switch (provider) {
             case 'google': await Firebase.signInWithGoogle(); break;
-            case 'facebook': await Firebase.signInWithFacebook(); break;
-            case 'apple': await Firebase.signInWithApple(); break;
         }
         UI.showToast(`Login com ${provider} bem-sucedido!`, 'success');
     } catch (error) {
@@ -159,13 +168,12 @@ async function handleSocialSignup(provider, button) {
         let result;
         switch (provider) {
             case 'google': result = await Firebase.signInWithGoogle(); break;
-            case 'facebook': result = await Firebase.signInWithFacebook(); break;
-            case 'apple': result = await Firebase.signInWithApple(); break;
         }
         const user = result.user;
         UI.showSocialSignupModal(data, async ({ guestNames, willAttendRestaurant }) => {
             try {
                 await Firebase.signupUser({ name: user.displayName || guestNames[0], email: user.email, password: null, keyDocId: docId, guestNames, willAttendRestaurant, socialProvider: provider, user: user });
+                removeKeyFromUrl(); // Limpa a URL após o cadastro
                 UI.showToast(`Bem-vindo(a), ${user.displayName}! Cadastro concluído.`, 'success');
             } catch (signupError) {
                 console.error(`Erro no cadastro com ${provider}:`, signupError);
@@ -261,11 +269,7 @@ function setupAuthFormListeners() {
     document.getElementById('show-signup')?.addEventListener('click', handleAuthFormSwitch);
     document.getElementById('show-login')?.addEventListener('click', handleAuthFormSwitch);
     document.getElementById('google-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('google', e.currentTarget));
-    document.getElementById('facebook-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('facebook', e.currentTarget));
-    document.getElementById('apple-login-modal-button')?.addEventListener('click', (e) => handleSocialLogin('apple', e.currentTarget));
     document.getElementById('google-signup-button')?.addEventListener('click', (e) => handleSocialSignup('google', e.currentTarget));
-    document.getElementById('facebook-signup-button')?.addEventListener('click', (e) => handleSocialSignup('facebook', e.currentTarget));
-    document.getElementById('apple-signup-button')?.addEventListener('click', (e) => handleSocialSignup('apple', e.currentTarget));
 }
 
 async function setupViewSpecificListeners() {

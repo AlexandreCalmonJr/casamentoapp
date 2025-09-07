@@ -2,7 +2,7 @@
 
 import * as UI from './admin-ui.js';
 import { adminEmails } from './config.js';
-import { auth, db } from './firebase-service.js';
+import { auth, db, uploadFileToCloudinary } from './firebase-service.js';
 import { PDFGenerator } from './pdf-generator.js';
 
 const state = {
@@ -43,13 +43,20 @@ function showShareModal(guestName, key, allowedGuests, phone) {
         const canvas = qrCodeContainer.querySelector('canvas');
         if (canvas) document.getElementById('download-qr-button').href = canvas.toDataURL();
     }, 100);
+
     const whatsappBtn = document.getElementById('whatsapp-share-button');
     if (phone && state.weddingDetails?.whatsappMessageTemplate) {
         const cleanPhone = phone.replace(/\D/g, '');
-        const message = state.weddingDetails.whatsappMessageTemplate
+        let message = state.weddingDetails.whatsappMessageTemplate
             .replace('{nome_convidado}', guestName)
             .replace('{nomes_casal}', state.weddingDetails.coupleNames)
             .replace('{link_convite}', fullLink);
+        
+        // Adiciona a URL da imagem à mensagem, se existir
+        if (state.weddingDetails.whatsappInviteImageUrl) {
+            message = `${state.weddingDetails.whatsappInviteImageUrl}\n\n${message}`;
+        }
+
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
         const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
         whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
@@ -59,6 +66,7 @@ function showShareModal(guestName, key, allowedGuests, phone) {
     }
     DOMElements.shareModal.classList.remove('hidden');
 }
+
 
 function handleGoogleLogin() {
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -99,7 +107,8 @@ async function handleSaveDetails(event) {
         whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim(),
         dressCodePalettes: dressCodePalettes,
         carouselPhotos: carouselPhotos, // NOVO
-        venuePhoto: document.getElementById('form-venue-photo-url').value.trim()
+        venuePhoto: document.getElementById('form-venue-photo-url').value.trim(),
+        whatsappInviteImageUrl: document.getElementById('form-whatsapp-image-url').value.trim() // Salva a nova imagem
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
@@ -343,6 +352,32 @@ function setupDetailsPhotoListeners() {
     }
 }
 
+// Função genérica para lidar com o upload de uma imagem
+async function handleImageUpload(inputId, urlHiddenId, progressBarId, previewId) {
+    const fileInput = document.getElementById(inputId);
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const progressBar = document.getElementById(progressBarId);
+    progressBar.parentElement.classList.remove('hidden');
+    progressBar.style.width = '0%';
+
+    try {
+        const imageUrl = await uploadFileToCloudinary(file, (progress) => {
+            progressBar.style.width = `${progress}%`;
+        });
+        document.getElementById(urlHiddenId).value = imageUrl;
+        document.getElementById(previewId).innerHTML = `<img src="${imageUrl}" class="rounded-lg max-w-xs shadow-md">`;
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Erro ao fazer upload da imagem.');
+    } finally {
+        setTimeout(() => {
+            progressBar.parentElement.classList.add('hidden');
+        }, 1000);
+    }
+}
+
 
 async function loadTab(tabName) {
     state.currentTab = tabName;
@@ -356,6 +391,10 @@ async function loadTab(tabName) {
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
         setupDetailsPhotoListeners(); // NOVO
+        
+        // Adiciona listeners para os novos campos de upload de imagem
+        document.getElementById('whatsapp-image-input').addEventListener('change', () => handleImageUpload('whatsapp-image-input', 'form-whatsapp-image-url', 'whatsapp-image-progress-bar', 'whatsapp-image-preview'));
+        document.getElementById('venue-photo-input').addEventListener('change', () => handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview'));
         
         const pdfGenerator = new PDFGenerator();
         document.querySelectorAll('[id^="preview-pdf-"]').forEach(button => {
