@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Nosso Casamento</title>
+
+    <meta property="og:title" content="Nosso Casamento" />
+    <meta property="og:description" content="Contamos com a sua presença para celebrar o nosso amor!" />
+    <meta property="og:image" content="https://alexandrecalmonjr.github.io/casamentoapp/images/icons/icon-512x512.png" />
+    <meta property="og:url" content="https://alexandrecalmonjr.github.io/casamentoapp/index.html" />
+    <meta property="og:type" content="website" />
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#5D5CDE">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -102,6 +108,9 @@
             <div id="nav-buttons-container" class="flex justify-around max-w-screen-lg mx-auto">
                 <button data-view="home" aria-label="Ir para Início" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-home text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Início</span>
+                </button>
+                 <button id="about-us-nav-button" data-view="about-us" aria-label="Ver Nossa História" class="nav-button flex-1 py-2 px-1 text-center hidden">
+                    <i class="fas fa-heart text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Sobre Nós</span>
                 </button>
                 <button data-view="details" aria-label="Ver Detalhes" class="nav-button flex-1 py-2 px-1 text-center">
                     <i class="fas fa-info-circle text-lg sm:text-xl"></i><span class="block text-[10px] sm:text-xs mt-1">Detalhes</span>
