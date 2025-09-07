@@ -52,59 +52,6 @@ export async function uploadFileToCloudinary(file, onProgress) {
     });
 }
 
-
-// --- Funções de Gamificação ---
-export async function incrementEngagementScore(user, type, points) {
-    if (!user) return;
-    const engagementRef = db.collection('guestEngagement').doc(user.uid);
-
-    return db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(engagementRef);
-        
-        if (!doc.exists) {
-            transaction.set(engagementRef, {
-                userId: user.uid,
-                userName: user.displayName,
-                photoURL: user.photoURL,
-                photoCount: type === 'photo' ? 1 : 0,
-                guestbookCount: type === 'guestbook' ? 1 : 0,
-                giftCount: type === 'gift' ? 1 : 0,
-                totalScore: points,
-                badges: []
-            });
-        } else {
-            const data = doc.data();
-            const newPhotoCount = (data.photoCount || 0) + (type === 'photo' ? 1 : 0);
-            const newGuestbookCount = (data.guestbookCount || 0) + (type === 'guestbook' ? 1 : 0);
-            const newGiftCount = (data.giftCount || 0) + (type === 'gift' ? 1 : 0);
-            const newTotalScore = (data.totalScore || 0) + points;
-
-            transaction.update(engagementRef, {
-                photoCount: newPhotoCount,
-                guestbookCount: newGuestbookCount,
-                giftCount: newGiftCount,
-                totalScore: newTotalScore,
-                userName: user.displayName,
-                photoURL: user.photoURL,
-            });
-        }
-    });
-}
-
-export function listenToRanking(onUpdate) {
-    return db.collection('guestEngagement')
-        .orderBy('totalScore', 'desc')
-        .limit(20)
-        .onSnapshot(snapshot => {
-            const ranking = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            onUpdate(ranking);
-        }, error => {
-            console.error("Error listening to ranking:", error);
-            onUpdate([]);
-        });
-}
-
-
 // --- Funções do Casamento ---
 
 export async function getWeddingDetails() {
@@ -113,7 +60,6 @@ export async function getWeddingDetails() {
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
-            // Garante que as datas são objetos Date do JS
             return { 
                 ...data, 
                 weddingDate: data.weddingDate.toDate(), 
@@ -127,7 +73,6 @@ export async function getWeddingDetails() {
     }
 }
 
-// NOVO: Função para buscar os eventos da Timeline
 export async function getTimelineEvents() {
     try {
         const snapshot = await db.collection('timeline').orderBy('date', 'asc').get();
@@ -161,7 +106,6 @@ export async function findAccessKeyForUser(userId) {
             return { key: doc.id, data: doc.data() };
         }
         
-        // Fallback para email, caso a migração de dados seja necessária
         const emailSnapshot = await db.collection('accessKeys')
             .where('usedByEmail', '==', currentUser.email)
             .limit(1)
@@ -169,7 +113,6 @@ export async function findAccessKeyForUser(userId) {
 
         if (!emailSnapshot.empty) {
             const doc = emailSnapshot.docs[0];
-            // Opcional: Atualizar o documento com o userId para futuras buscas
             await doc.ref.update({ usedByUserId: userId });
             return { key: doc.id, data: doc.data() };
         }

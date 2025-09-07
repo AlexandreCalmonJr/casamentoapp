@@ -38,7 +38,6 @@ export function setButtonLoading(button, isLoading) {
     }
 }
 
-// NOVO: Função para renderizar o carrossel
 function renderCarousel(photos) {
     if (!photos || photos.length === 0) return '';
     
@@ -90,7 +89,6 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
                 </div>`;
         
         case 'details':
-            // NOVO: Adiciona a foto do local da cerimônia
             const venuePhotoHTML = weddingDetails.venuePhoto 
                 ? `<img src="${getOptimizedCloudinaryUrl(weddingDetails.venuePhoto, 'w_800,c_fill,q_auto')}" alt="Local da Cerimônia" class="w-full h-auto rounded-lg mb-6 shadow-md">` 
                 : '';
@@ -108,24 +106,8 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
                 ${weddingDetails.restaurantName ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3><div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div><div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress}</span></div><div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo}</span></div>${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}</div>` : ''}
             </div>`;
         
-        // NOVO: View da Timeline
-        case 'about-us':
-            if (!user) {
-                return `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Nossa História</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa timeline, por favor, faça o login na aba "Acesso".</p></div>`;
-            }
-            return `<div class="space-y-6">
-                <div class="text-center"><h1 class="text-3xl font-cursive mb-2">Nossa História</h1></div>
-                <div id="timeline-container"></div>
-            </div>`;
-
         case 'guest-photos':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center mb-4">Olá, ${user.displayName}! Compartilhe seus registros.</p><div class="flex flex-col sm:flex-row items-center gap-4"><input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/><button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button></div><div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2><ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300"><li>Uma foto com alguém que você acabou de conhecer</li><li>Uma foto do seu detalhe favorito da decoração</li><li>Uma selfie com os noivos</li><li>A foto mais divertida do casamento!</li></ul></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Galeria Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver e enviar fotos, por favor, faça o login na aba "Acesso".</p></div>`}<div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>`;
-
-        case 'activities':
-            if (!user) {
-                return `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Ranking Exclusivo</h2><p class="text-gray-600 dark:text-gray-400">Para ver o ranking de atividades, por favor, faça o login na aba "Acesso".</p></div>`;
-            }
-            return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Atividades dos Convidados</h1></div><div id="user-rank-profile" class="mb-6"></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-semibold mb-4 flex items-center"><i class="fas fa-trophy text-amber-400 mr-3"></i>Ranking de Engajamento</h2><div id="ranking-list" class="space-y-3"></div></div></div>`;
 
         case 'guestbook':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Mural de Recados</h1></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">${user ? `<h2 class="text-xl font-medium mb-4">Deixe sua mensagem de carinho</h2><form id="guestbook-form" class="space-y-4"><textarea id="guestbook-message" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600" rows="4" placeholder="Escreva sua mensagem aqui..." required></textarea><button type="submit" class="w-full py-2 bg-primary text-white rounded">Enviar Mensagem</button></form>` : `<div class="text-center"><p class="mb-4">Faça login para deixar uma mensagem no nosso mural de recados!</p><button id="open-login-button" class="w-full py-2 px-4 bg-primary hover:bg-opacity-90 text-white font-medium rounded-lg">Fazer Login</button></div>`}</div><div id="guestbook-messages" class="space-y-4"></div></div>`;
@@ -202,7 +184,6 @@ export function updateCountdown(weddingDate) {
     return intervalId;
 }
 
-// NOVO: Função para inicializar a lógica do carrossel
 export function initializeCarousel() {
     const container = document.getElementById('carousel-container');
     if (!container) return;
@@ -265,7 +246,6 @@ export function renderGuestPhotos(photos) {
     }
 }
 
-// NOVO: Função para renderizar a timeline
 export function renderTimeline(events) {
     const container = document.getElementById('timeline-container');
     if (!container) return;
@@ -504,7 +484,6 @@ export function showSocialSignupModal(keyData, onComplete) {
     });
 }
 
-// ATUALIZADO: Mostra a paleta apenas para a função do usuário
 export function renderDressCodeModal(palettes, userRole) {
     const modal = document.getElementById('dress-code-modal');
     const container = document.getElementById('dress-code-content-container');
@@ -577,19 +556,19 @@ export function showTutorialModal(onComplete) {
         {
             icon: 'fas fa-heart',
             title: 'Bem-vindo(a)!',
-            content: 'Este é nosso convite digital interativo! Aqui você encontrará todas as informações sobre nosso grande dia e poderá participar de atividades especiais.',
+            content: 'Este é nosso convite digital interativo! Aqui você encontrará todas as informações sobre nosso grande dia.',
             color: 'text-red-500'
         },
         {
             icon: 'fas fa-user-plus',
             title: 'Faça seu Cadastro',
-            content: 'Para acessar todas as funcionalidades, você precisa se cadastrar usando a chave de acesso que enviamos. Isso nos ajuda a organizar melhor o evento!',
+            content: 'Para aceder a todas as funcionalidades, você precisa de se cadastrar usando a chave de acesso que enviamos. Isso ajuda-nos a organizar melhor o evento!',
             color: 'text-blue-500'
         },
         {
             icon: 'fas fa-camera',
             title: 'Compartilhe Momentos',
-            content: 'Envie fotos suas e dos preparativos! Elas aparecerão na nossa galeria compartilhada. Cada foto enviada ganha pontos!',
+            content: 'Envie fotos suas e dos preparativos! Elas aparecerão na nossa galeria partilhada.',
             color: 'text-green-500'
         },
         {
@@ -601,19 +580,13 @@ export function showTutorialModal(onComplete) {
         {
             icon: 'fas fa-book-open',
             title: 'Mural de Recados',
-            content: 'Deixe uma mensagem carinhosa para nós! Todos os recados ficarão salvos como lembrança deste dia especial.',
+            content: 'Deixe uma mensagem carinhosa para nós! Todos os recados ficarão guardados como lembrança deste dia especial.',
             color: 'text-purple-500'
-        },
-        {
-            icon: 'fas fa-star',
-            title: 'Sistema de Pontos',
-            content: 'Participe das atividades e ganhe pontos! Enviar fotos, deixar recados e escolher presentes te dão pontos no ranking dos convidados mais ativos.',
-            color: 'text-orange-500'
         },
         {
             icon: 'fas fa-palette',
             title: 'Paleta de Cores',
-            content: 'Se você é padrinho, madrinha ou tem função especial, pode acessar sua paleta de cores personalizada e baixar um manual em PDF!',
+            content: 'Se você é padrinho, madrinha ou tem função especial, pode aceder à sua paleta de cores personalizada e baixar um manual em PDF!',
             color: 'text-indigo-500'
         }
     ];

@@ -30,9 +30,8 @@ const appState = {
     galleryUnsubscribe: null,
     guestbookUnsubscribe: null,
     giftListUnsubscribe: null,
-    rankingUnsubscribe: null,
     weddingDetails: null,
-    timelineEvents: [] // NOVO
+    timelineEvents: []
 };
 
 function initializeDarkMode() {
@@ -48,12 +47,10 @@ function cleanupListeners() {
     if (appState.galleryUnsubscribe) appState.galleryUnsubscribe();
     if (appState.guestbookUnsubscribe) appState.guestbookUnsubscribe();
     if (appState.giftListUnsubscribe) appState.giftListUnsubscribe();
-    if (appState.rankingUnsubscribe) appState.rankingUnsubscribe();
     if (appState.countdownInterval) clearInterval(appState.countdownInterval);
     appState.galleryUnsubscribe = null;
     appState.guestbookUnsubscribe = null;
     appState.giftListUnsubscribe = null;
-    appState.rankingUnsubscribe = null;
     appState.countdownInterval = null;
 }
 
@@ -90,7 +87,6 @@ async function handleLoginSubmit(event) {
     try {
         await Firebase.loginUser(email, password);
         UI.showToast('Login efetuado com sucesso!', 'success');
-        // Adicionado para garantir que a página recarregue após o login, se necessário.
         setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
         UI.showToast('Email ou senha inválidos. Tente novamente.', 'error');
@@ -123,10 +119,8 @@ async function handleSignupSubmit(event) {
         await Firebase.signupUser({ name: mainGuestName, email, password, keyDocId: docId, guestNames, willAttendRestaurant });
         UI.showToast(`Bem-vindo(a), ${mainGuestName}! Cadastro realizado.`, 'success');
         
-        // **CORREÇÃO APLICADA AQUI**
-        // Redireciona para a página principal após um curto atraso para que o usuário veja a mensagem de sucesso.
         setTimeout(() => {
-            window.location.href = window.location.origin + window.location.pathname; // Redireciona para a URL base
+            window.location.href = window.location.origin + window.location.pathname;
         }, 1500);
 
     } catch (error) {
@@ -144,7 +138,6 @@ async function handleSocialLogin(provider, button) {
             case 'google': await Firebase.signInWithGoogle(); break;
         }
         UI.showToast(`Login com ${provider} bem-sucedido!`, 'success');
-        // Adicionado para garantir que a página recarregue após o login, se necessário.
         setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
         console.error(`${provider} Sign-In Error:`, error);
@@ -176,7 +169,6 @@ async function handleSocialSignup(provider, button) {
                 await Firebase.signupUser({ name: user.displayName || guestNames[0], email: user.email, password: null, keyDocId: docId, guestNames, willAttendRestaurant, socialProvider: provider, user: user });
                 UI.showToast(`Bem-vindo(a), ${user.displayName}! Cadastro concluído.`, 'success');
 
-                // **CORREÇÃO APLICADA AQUI**
                 setTimeout(() => {
                     window.location.href = window.location.origin + window.location.pathname;
                 }, 1500);
@@ -194,7 +186,6 @@ async function handleSocialSignup(provider, button) {
     }
 }
 
-
 async function handlePhotoUploadClick() {
     const fileInput = document.getElementById('photo-input');
     const uploadBtn = document.getElementById('upload-button');
@@ -206,9 +197,8 @@ async function handlePhotoUploadClick() {
     UI.setButtonLoading(uploadBtn, true);
     try {
         await Firebase.uploadPhoto(file, appState.currentUser, (progress) => { progressBar.style.width = `${progress}%`; });
-        await Firebase.incrementEngagementScore(appState.currentUser, 'photo', 10);
         fileInput.value = '';
-        UI.showToast('Foto enviada com sucesso! +10 pontos!', 'success');
+        UI.showToast('Foto enviada com sucesso!', 'success');
     } catch (error) {
         UI.showToast('Erro no upload. Tente novamente.', 'error');
     } finally {
@@ -226,9 +216,8 @@ async function handleGuestbookSubmit(event) {
     UI.setButtonLoading(button, true);
     try {
         await Firebase.postGuestbookMessage(appState.currentUser, message);
-        await Firebase.incrementEngagementScore(appState.currentUser, 'guestbook', 15);
         messageInput.value = '';
-        UI.showToast('Sua mensagem foi enviada! +15 pontos!', 'success');
+        UI.showToast('Sua mensagem foi enviada!', 'success');
     } catch (error) {
         UI.showToast('Erro ao enviar mensagem.', 'error');
     } finally {
@@ -299,20 +288,6 @@ async function setupViewSpecificListeners() {
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
 
-    // NOVO: Busca os dados da timeline quando a view é acessada
-    if (appState.currentView === 'about-us' && appState.currentUser) {
-        if(appState.timelineEvents.length === 0) { // Busca apenas se não tiver sido buscado antes
-            appState.timelineEvents = await Firebase.getTimelineEvents();
-        }
-        UI.renderTimeline(appState.timelineEvents);
-    }
-
-    if (appState.currentView === 'activities' && appState.currentUser) {
-        appState.rankingUnsubscribe = Firebase.listenToRanking((rankingData) => {
-            UI.renderRanking(rankingData, appState.currentUser.uid);
-        });
-    }
-    
     if (appState.currentView === 'gifts' && appState.currentUser) {
         appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
             UI.renderGiftList(gifts, appState.currentUser);
@@ -321,7 +296,6 @@ async function setupViewSpecificListeners() {
                 UI.setButtonLoading(button, true);
                 try {
                     await Firebase.unmarkGiftAsTaken(button.dataset.id);
-                    await Firebase.incrementEngagementScore(appState.currentUser, 'gift', -25);
                     UI.showToast('Escolha desfeita.', 'success');
                 } catch (err) {
                     console.error("Error unmarking gift:", err);
@@ -378,12 +352,8 @@ function renderCurrentView() {
 
 async function updateUserArea(user) {
     const container = document.getElementById('user-actions-container');
-    const activitiesButton = document.getElementById('activities-nav-button');
-    const aboutUsButton = document.getElementById('about-us-nav-button'); // NOVO
     const rsvpNavText = document.getElementById('rsvp-nav-text');
 
-    if (activitiesButton) activitiesButton.classList.toggle('hidden', !user);
-    if (aboutUsButton) aboutUsButton.classList.toggle('hidden', !user); // NOVO
     if (rsvpNavText) rsvpNavText.textContent = user ? 'Portal' : 'Acesso';
 
     if (!container) return;
@@ -451,9 +421,8 @@ function setupModalListeners() {
                 if (giftId !== 'custom') {
                     await Firebase.markGiftAsTaken(giftId, appState.currentUser);
                 }
-                await Firebase.incrementEngagementScore(appState.currentUser, 'gift', 25);
                 UI.togglePixModal(false);
-                UI.showToast('Obrigado pelo seu presente! +25 pontos!', 'success');
+                UI.showToast('Obrigado pelo seu presente!', 'success');
             } catch (err) {
                 console.error("Erro ao marcar presente:", err);
                 UI.showToast("Ocorreu um erro ao confirmar o seu presente.", 'error');
@@ -518,7 +487,7 @@ async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
-        const validViews = ['home', 'details', 'guest-photos', 'activities', 'guestbook', 'gifts', 'rsvp', 'about-us'];
+        const validViews = ['home', 'details', 'guest-photos', 'guestbook', 'gifts', 'rsvp'];
         appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
         Firebase.auth.onAuthStateChanged(async (user) => {
