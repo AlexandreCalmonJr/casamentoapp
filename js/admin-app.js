@@ -47,18 +47,30 @@ function showShareModal(guestName, key, allowedGuests, phone) {
     const whatsappBtn = document.getElementById('whatsapp-share-button');
     if (phone && state.weddingDetails?.whatsappMessageTemplate) {
         const cleanPhone = phone.replace(/\D/g, '');
-        let message = state.weddingDetails.whatsappMessageTemplate
+        
+        // CORREÇÃO APLICADA AQUI
+        const textTemplate = state.weddingDetails.whatsappMessageTemplate;
+        const imageUrl = state.weddingDetails.whatsappInviteImageUrl;
+
+        // Monta a parte do texto da mensagem
+        let textPart = textTemplate
             .replace('{nome_convidado}', guestName)
             .replace('{nomes_casal}', state.weddingDetails.coupleNames)
             .replace('{link_convite}', fullLink);
-        
-        // Adiciona a URL da imagem à mensagem, se existir
-        if (state.weddingDetails.whatsappInviteImageUrl) {
-            message = `${state.weddingDetails.whatsappInviteImageUrl}\n\n${message}`;
-        }
 
+        let finalMessage;
+
+        if (imageUrl) {
+            // Se houver uma imagem, colocamo-la primeiro, seguida pelo resto da mensagem.
+            // Esta estrutura aumenta a probabilidade de o WhatsApp gerar a pré-visualização da imagem.
+            finalMessage = `${imageUrl}\n\n${textPart}`;
+        } else {
+            finalMessage = textPart;
+        }
+        
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
+        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(finalMessage)}`;
+        
         whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
         whatsappBtn.classList.remove('hidden');
     } else {
