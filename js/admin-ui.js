@@ -142,7 +142,6 @@ export function renderSidebarNav() {
     const navItems = [
         { tab: 'report', icon: 'fa-chart-pie', label: 'Relatório' },
         { tab: 'keys', icon: 'fa-key', label: 'Convites' },
-        { tab: 'timeline', icon: 'fa-calendar-alt', label: 'Timeline' }, // NOVO: Link da Timeline
         { tab: 'guestbook', icon: 'fa-book-open', label: 'Recados' },
         { tab: 'gifts', icon: 'fa-gift', label: 'Presentes' },
         { tab: 'admin-gallery', icon: 'fa-images', label: 'Galeria' },
@@ -252,6 +251,19 @@ export function renderDetailsEditor(details) {
             <div class="border-t pt-4">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Fotos e Mídia</h3>
                 <div class="space-y-4">
+                     <div>
+                        <label class="block text-sm font-medium mb-2">Imagem do Convite WhatsApp</label>
+                        <p class="text-xs text-gray-500 mb-2">Esta imagem será enviada junto com o link do convite via WhatsApp.</p>
+                        <input type="file" id="whatsapp-image-input" class="hidden" accept="image/*">
+                        <input type="hidden" id="form-whatsapp-image-url" value="${details.whatsappInviteImageUrl || ''}">
+                        <button type="button" onclick="document.getElementById('whatsapp-image-input').click()" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
+                             <i class="fab fa-whatsapp mr-2"></i>Escolher Imagem
+                        </button>
+                        <div id="whatsapp-image-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden"><div id="whatsapp-image-progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div></div>
+                        <div id="whatsapp-image-preview" class="mt-2">
+                            ${details.whatsappInviteImageUrl ? `<img src="${getOptimizedCloudinaryUrl(details.whatsappInviteImageUrl)}" class="rounded-lg max-w-xs shadow-md">` : ''}
+                        </div>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Fotos do Carrossel (Página Inicial)</label>
                         <input type="file" id="carousel-photo-input" class="hidden" accept="image/*" multiple>

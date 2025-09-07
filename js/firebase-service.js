@@ -17,17 +17,6 @@ export function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     return auth.signInWithPopup(provider);
 }
-export function signInWithFacebook() {
-    const provider = new firebase.auth.FacebookAuthProvider();
-    provider.addScope('email');
-    return auth.signInWithPopup(provider);
-}
-export function signInWithApple() {
-    const provider = new firebase.auth.OAuthProvider('apple.com');
-    provider.addScope('email');
-    provider.addScope('name');
-    return auth.signInWithPopup(provider);
-}
 
 export async function uploadFileToCloudinary(file, onProgress) {
     const url = `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`;
