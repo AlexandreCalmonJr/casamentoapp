@@ -48,28 +48,14 @@ function showShareModal(guestName, key, allowedGuests, phone) {
     if (phone && state.weddingDetails?.whatsappMessageTemplate) {
         const cleanPhone = phone.replace(/\D/g, '');
         
-        // CORREÇÃO APLICADA AQUI
-        const textTemplate = state.weddingDetails.whatsappMessageTemplate;
-        const imageUrl = state.weddingDetails.whatsappInviteImageUrl;
-
-        // Monta a parte do texto da mensagem
-        let textPart = textTemplate
+        // LÓGICA REVERTIDA: A mensagem agora é apenas o template preenchido
+        let message = state.weddingDetails.whatsappMessageTemplate
             .replace('{nome_convidado}', guestName)
             .replace('{nomes_casal}', state.weddingDetails.coupleNames)
             .replace('{link_convite}', fullLink);
 
-        let finalMessage;
-
-        if (imageUrl) {
-            // Se houver uma imagem, colocamo-la primeiro, seguida pelo resto da mensagem.
-            // Esta estrutura aumenta a probabilidade de o WhatsApp gerar a pré-visualização da imagem.
-            finalMessage = `${imageUrl}\n\n${textPart}`;
-        } else {
-            finalMessage = textPart;
-        }
-        
         const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(finalMessage)}`;
+        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
         
         whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
         whatsappBtn.classList.remove('hidden');
@@ -102,7 +88,6 @@ async function handleSaveDetails(event) {
         dressCodePalettes[groupName] = colors;
     });
 
-    // NOVO: Coleta das URLs das fotos do carrossel
     const carouselPhotos = Array.from(document.querySelectorAll('#carousel-photos-preview img')).map(img => img.src);
 
     const updatedDetails = {
@@ -118,9 +103,8 @@ async function handleSaveDetails(event) {
         pixKey: document.getElementById('form-pix-key').value.trim(),
         whatsappMessageTemplate: document.getElementById('form-whatsapp-template').value.trim(),
         dressCodePalettes: dressCodePalettes,
-        carouselPhotos: carouselPhotos, // NOVO
+        carouselPhotos: carouselPhotos,
         venuePhoto: document.getElementById('form-venue-photo-url').value.trim(),
-        whatsappInviteImageUrl: document.getElementById('form-whatsapp-image-url').value.trim() // Salva a nova imagem
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
@@ -402,10 +386,8 @@ async function loadTab(tabName) {
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
-        setupDetailsPhotoListeners(); // NOVO
+        setupDetailsPhotoListeners();
         
-        // Adiciona listeners para os novos campos de upload de imagem
-        document.getElementById('whatsapp-image-input').addEventListener('change', () => handleImageUpload('whatsapp-image-input', 'form-whatsapp-image-url', 'whatsapp-image-progress-bar', 'whatsapp-image-preview'));
         document.getElementById('venue-photo-input').addEventListener('change', () => handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview'));
         
         const pdfGenerator = new PDFGenerator();
