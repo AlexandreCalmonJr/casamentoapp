@@ -57,16 +57,6 @@ function cleanupListeners() {
     appState.countdownInterval = null;
 }
 
-// NOVA FUNÇÃO: Remove o parâmetro ?key= da URL
-function removeKeyFromUrl() {
-    const currentUrl = new URL(window.location.href);
-    if (currentUrl.searchParams.has('key')) {
-        const newUrl = currentUrl.pathname + currentUrl.hash;
-        window.history.replaceState(history.state, '', newUrl);
-    }
-}
-
-
 async function handleAccessKeyValidation(key) {
     try {
         return await Firebase.validateAccessKey(key);
@@ -100,6 +90,8 @@ async function handleLoginSubmit(event) {
     try {
         await Firebase.loginUser(email, password);
         UI.showToast('Login efetuado com sucesso!', 'success');
+        // Adicionado para garantir que a página recarregue após o login, se necessário.
+        setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
         UI.showToast('Email ou senha inválidos. Tente novamente.', 'error');
     } finally {
@@ -123,18 +115,24 @@ async function handleSignupSubmit(event) {
         const { isValid, isUsed, docId } = await handleAccessKeyValidation(key);
         if (!isValid || isUsed) {
             UI.showToast(isUsed ? "Esta chave de acesso já foi utilizada." : "Chave de acesso inválida.", 'error');
+            UI.setButtonLoading(button, false);
             return;
         }
         const mainGuestName = guestNames[0];
         const willAttendRestaurant = document.querySelector('input[name="attend-restaurant"]:checked')?.value === 'yes';
         await Firebase.signupUser({ name: mainGuestName, email, password, keyDocId: docId, guestNames, willAttendRestaurant });
-        removeKeyFromUrl(); // Limpa a URL após o cadastro
         UI.showToast(`Bem-vindo(a), ${mainGuestName}! Cadastro realizado.`, 'success');
+        
+        // **CORREÇÃO APLICADA AQUI**
+        // Redireciona para a página principal após um curto atraso para que o usuário veja a mensagem de sucesso.
+        setTimeout(() => {
+            window.location.href = window.location.origin + window.location.pathname; // Redireciona para a URL base
+        }, 1500);
+
     } catch (error) {
         console.error('Erro no cadastro:', error);
         const message = error.code === 'auth/email-already-in-use' ? "Este email já está cadastrado." : "Erro ao criar a conta. Verifique os dados.";
         UI.showToast(message, 'error');
-    } finally {
         UI.setButtonLoading(button, false);
     }
 }
@@ -146,6 +144,8 @@ async function handleSocialLogin(provider, button) {
             case 'google': await Firebase.signInWithGoogle(); break;
         }
         UI.showToast(`Login com ${provider} bem-sucedido!`, 'success');
+        // Adicionado para garantir que a página recarregue após o login, se necessário.
+        setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
         console.error(`${provider} Sign-In Error:`, error);
         UI.showToast(`Erro ao fazer login com ${provider}.`, 'error');
@@ -163,6 +163,7 @@ async function handleSocialSignup(provider, button) {
         const { isValid, isUsed, docId, data } = await handleAccessKeyValidation(key);
         if (!isValid || isUsed) {
             UI.showToast(isUsed ? "Esta chave já foi utilizada." : "Chave de acesso inválida.", 'error');
+            UI.setButtonLoading(button, false);
             return;
         }
         let result;
@@ -173,8 +174,13 @@ async function handleSocialSignup(provider, button) {
         UI.showSocialSignupModal(data, async ({ guestNames, willAttendRestaurant }) => {
             try {
                 await Firebase.signupUser({ name: user.displayName || guestNames[0], email: user.email, password: null, keyDocId: docId, guestNames, willAttendRestaurant, socialProvider: provider, user: user });
-                removeKeyFromUrl(); // Limpa a URL após o cadastro
                 UI.showToast(`Bem-vindo(a), ${user.displayName}! Cadastro concluído.`, 'success');
+
+                // **CORREÇÃO APLICADA AQUI**
+                setTimeout(() => {
+                    window.location.href = window.location.origin + window.location.pathname;
+                }, 1500);
+
             } catch (signupError) {
                 console.error(`Erro no cadastro com ${provider}:`, signupError);
                 UI.showToast(`Erro ao finalizar cadastro com ${provider}.`, 'error');
@@ -187,6 +193,7 @@ async function handleSocialSignup(provider, button) {
         UI.setButtonLoading(button, false);
     }
 }
+
 
 async function handlePhotoUploadClick() {
     const fileInput = document.getElementById('photo-input');
