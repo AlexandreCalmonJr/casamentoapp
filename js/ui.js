@@ -174,7 +174,7 @@ export function updateCountdown(weddingDate) {
         }
         const d = Math.floor(distance / (1000 * 60 * 60 * 24));
         const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const m = Math.floor((distance % (1000 * 60)) / (1000 * 60));
         const s = Math.floor((distance % (1000 * 60)) / 1000);
         countdownEl.innerHTML = `<div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(d).padStart(2, '0')}</div><div class="text-xs">Dias</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(h).padStart(2, '0')}</div><div class="text-xs">Horas</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(m).padStart(2, '0')}</div><div class="text-xs">Min</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(s).padStart(2, '0')}</div><div class="text-xs">Seg</div></div>`;
     };
@@ -257,7 +257,7 @@ export function renderTimeline(events) {
     container.innerHTML = `<div class="relative border-l-2 border-primary/20 dark:border-dark-primary/20 ml-6 space-y-12">` +
         events.map(event => {
             const formattedDate = new Date(event.date).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-            const imageHTML = event.imageUrl ? `<img src="${getOptimizedCloudinaryUrl(event.imageUrl, 'w_600,c_fill,q_auto')}" alt="${event.title}" class="rounded-lg shadow-lg mt-4">` : '';
+            const imageHTML = event.imageUrl ? `<img src="${getOptimizedCloudinaryUrl(event.imageUrl, 'w_600,c_fill,q_auto')}" class="rounded-lg shadow-lg mt-4" alt="${event.title}">` : '';
 
             return `
             <div class="ml-6">
@@ -284,7 +284,7 @@ export function renderGuestbookMessages(messages) {
     }
 }
 
-// ========= MODIFICADO =========
+// ========= MODIFICADO NOVAMENTE (removido o indicador "Contribuído") =========
 export function renderGiftList(gifts, currentUser) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
@@ -314,15 +314,16 @@ export function renderGiftList(gifts, currentUser) {
     const giftCardsHTML = gifts.map(gift => {
         const contributors = gift.contributors || [];
         const isTakenByMe = contributors.some(c => c.userId === currentUser.uid);
-        const hasContributors = contributors.length > 0;
+        // A variável 'hasContributors' ainda é útil para o 'isTakenByMe', mas não será mais usada para exibir um indicador público.
+        // const hasContributors = contributors.length > 0; 
 
         const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl, 'w_400,h_300,c_fill,q_auto');
         const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor simbólico';
 
-        // Indicador visual de que já foi contribuído, sem mostrar nomes
-        const contributionIndicatorHTML = hasContributors
-            ? `<div class="absolute top-2 right-2 text-xs font-bold text-white bg-green-500 px-2 py-1 rounded-full shadow-lg">Contribuído</div>`
-            : '';
+        // Removido: O indicador visual de que já foi contribuído, para não sugerir que não pode mais doar.
+        // const contributionIndicatorHTML = hasContributors
+        //     ? `<div class="absolute top-2 right-2 text-xs font-bold text-white bg-green-500 px-2 py-1 rounded-full shadow-lg">Contribuído</div>`
+        //     : '';
 
         const actionButtonHTML = isTakenByMe
             ? `<button data-id="${gift.id}" aria-label="Desfazer contribuição" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer contribuição</button>`
@@ -330,7 +331,6 @@ export function renderGiftList(gifts, currentUser) {
 
         return `
             <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all relative">
-                ${contributionIndicatorHTML}
                 <div>
                     <img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3>
@@ -345,7 +345,7 @@ export function renderGiftList(gifts, currentUser) {
 
     container.innerHTML = donationCardHTML + giftCardsHTML;
 }
-// ========= FIM DA MODIFICAÇÃO =========
+// ========= FIM DA MODIFICAÇÃO NOVAMENTE =========
 
 function addFormValidation() {
     document.querySelectorAll('input[required], textarea[required]').forEach(input => {
