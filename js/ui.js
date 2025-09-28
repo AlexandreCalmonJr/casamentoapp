@@ -39,7 +39,7 @@ export function setButtonLoading(button, isLoading) {
 
 function renderCarousel(photos) {
     if (!photos || photos.length === 0) return '';
-    
+
     const slides = photos.map(photo => `
         <div class="carousel-slide">
             <img src="${getOptimizedCloudinaryUrl(photo, 'w_800,h_600,c_fill,q_auto')}" class="w-full h-full object-cover" alt="Foto do casal">
@@ -86,10 +86,10 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
                         <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
                     </div>
                 </div>`;
-        
+
         case 'details':
-            const venuePhotoHTML = weddingDetails.venuePhoto 
-                ? `<img src="${getOptimizedCloudinaryUrl(weddingDetails.venuePhoto, 'w_800,c_fill,q_auto')}" alt="Local da Cerimônia" class="w-full h-auto rounded-lg mb-6 shadow-md">` 
+            const venuePhotoHTML = weddingDetails.venuePhoto
+                ? `<img src="${getOptimizedCloudinaryUrl(weddingDetails.venuePhoto, 'w_800,c_fill,q_auto')}" alt="Local da Cerimônia" class="w-full h-auto rounded-lg mb-6 shadow-md">`
                 : '';
 
             return `<div class="space-y-6">
@@ -104,20 +104,20 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
                 </div>
                 ${weddingDetails.restaurantName ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 space-y-4"><h3 class="text-lg font-semibold border-b pb-2 mb-3">Comemoração Pós-Cerimônia</h3><div class="flex items-center"><i class="fas fa-utensils fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantName}</span></div><div class="flex items-center"><i class="fas fa-map-pin fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantAddress}</span></div><div class="flex items-center"><i class="fas fa-dollar-sign fa-fw mr-3 text-primary dark:text-dark-primary"></i><span>${weddingDetails.restaurantPriceInfo}</span></div>${weddingDetails.restaurantMapsLink ? `<a href="${weddingDetails.restaurantMapsLink}" target="_blank" class="block w-full text-center mt-4 py-2 px-4 bg-primary text-white font-medium rounded-lg">Ver no Google Maps</a>` : ''}</div>` : ''}
             </div>`;
-        
+
         case 'guest-photos':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Galeria dos Convidados</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center mb-4">Olá, ${user.displayName}! Compartilhe seus registros.</p><div class="flex flex-col sm:flex-row items-center gap-4"><input type="file" id="photo-input" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 dark:file:bg-dark-primary/20 dark:file:text-dark-primary"/><button id="upload-button" class="bg-primary text-white px-4 py-2 rounded-lg w-full sm:w-auto flex-shrink-0"><i class="fas fa-upload mr-2"></i>Enviar</button></div><div id="upload-progress-container" class="mt-4 hidden"><div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700"><div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div></div></div></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-medium mb-4 flex items-center"><i class="fas fa-camera-retro text-primary dark:text-dark-primary mr-2"></i>Caça ao Tesouro Fotográfica!</h2><ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300"><li>Uma foto com alguém que você acabou de conhecer</li><li>Uma foto do seu detalhe favorito da decoração</li><li>Uma selfie com os noivos</li><li>A foto mais divertida do casamento!</li></ul></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Galeria Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver e enviar fotos, por favor, faça o login na aba "Acesso".</p></div>`}<div id="photo-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>`;
 
         case 'guestbook':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Mural de Recados</h1></div><div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">${user ? `<h2 class="text-xl font-medium mb-4">Deixe sua mensagem de carinho</h2><form id="guestbook-form" class="space-y-4"><textarea id="guestbook-message" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600" rows="4" placeholder="Escreva sua mensagem aqui..." required></textarea><button type="submit" class="w-full py-2 bg-primary text-white rounded">Enviar Mensagem</button></form>` : `<div class="text-center"><p class="mb-4">Faça login para deixar uma mensagem no nosso mural de recados!</p><button id="open-login-button" class="w-full py-2 px-4 bg-primary hover:bg-opacity-90 text-white font-medium rounded-lg">Fazer Login</button></div>`}</div><div id="guestbook-messages" class="space-y-4"></div></div>`;
-        
+
         case 'gifts':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Lista de Presentes</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sua presença é o nosso maior presente! Mas se desejar nos presentear, preparamos com carinho esta lista de sugestões.</p><div id="gift-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Lista Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa lista de presentes, por favor, faça o login na aba "Acesso".</p></div>`}</div>`;
-        
+
         case 'rsvp':
             if (user && accessKeyInfo) {
                 const { guestName, allowedGuests, willAttendRestaurant, role } = accessKeyInfo.data;
-                const dressCodeButtonHTML = specialRoles.includes(role) 
+                const dressCodeButtonHTML = specialRoles.includes(role)
                     ? `<button id="dress-code-button" class="bg-accent text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all col-span-1 md:col-span-2"><i class="fas fa-palette mr-2"></i>Manual de Vestimentas</button>`
                     : '';
 
@@ -164,19 +164,19 @@ export function updateCountdown(weddingDate) {
         return null;
     }
     const targetTime = weddingDate.getTime();
-    let intervalId = null; 
+    let intervalId = null;
     const update = () => {
         const distance = targetTime - new Date().getTime();
         if (distance < 0) {
             countdownEl.innerHTML = `<div class="text-xl font-serif text-primary dark:text-dark-primary">O grande dia chegou! 🎉</div>`;
-            if (intervalId) clearInterval(intervalId); 
+            if (intervalId) clearInterval(intervalId);
             return;
         }
-        const d = Math.floor(distance / (1000*60*60*24));
-        const h = Math.floor((distance % (1000*60*60*24)) / (1000*60*60));
-        const m = Math.floor((distance % (1000*60*60)) / (1000*60));
-        const s = Math.floor((distance % (1000*60)) / 1000);
-        countdownEl.innerHTML = `<div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(d).padStart(2,'0')}</div><div class="text-xs">Dias</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(h).padStart(2,'0')}</div><div class="text-xs">Horas</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(m).padStart(2,'0')}</div><div class="text-xs">Min</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(s).padStart(2,'0')}</div><div class="text-xs">Seg</div></div>`;
+        const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((distance % (1000 * 60)) / 1000);
+        countdownEl.innerHTML = `<div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(d).padStart(2, '0')}</div><div class="text-xs">Dias</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(h).padStart(2, '0')}</div><div class="text-xs">Horas</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(m).padStart(2, '0')}</div><div class="text-xs">Min</div></div><div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg w-16"><div class="text-2xl font-bold text-primary dark:text-dark-primary">${String(s).padStart(2, '0')}</div><div class="text-xs">Seg</div></div>`;
     };
     update();
     intervalId = setInterval(update, 1000);
@@ -222,7 +222,7 @@ export function initializeCarousel() {
         const targetIndex = parseInt(targetDot.dataset.index);
         moveToSlide(targetIndex);
     });
-    
+
     // Auto-play
     setInterval(() => {
         const nextIndex = (currentIndex + 1) % slides.length;
@@ -318,19 +318,19 @@ export function renderGiftList(gifts, currentUser) {
 
         const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl, 'w_400,h_300,c_fill,q_auto');
         const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor simbólico';
-        
-        let contributorsHTML = '';
-        if (hasContributors) {
-            const contributorNames = contributors.map(c => c.userName.split(' ')[0]).join(', ');
-            contributorsHTML = `<div class="text-center text-xs text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50 mt-2">Contribuído por: ${contributorNames}</div>`;
-        }
 
-        const actionButtonHTML = isTakenByMe 
+        // Indicador visual de que já foi contribuído, sem mostrar nomes
+        const contributionIndicatorHTML = hasContributors
+            ? `<div class="absolute top-2 right-2 text-xs font-bold text-white bg-green-500 px-2 py-1 rounded-full shadow-lg">Contribuído</div>`
+            : '';
+
+        const actionButtonHTML = isTakenByMe
             ? `<button data-id="${gift.id}" aria-label="Desfazer contribuição" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer contribuição</button>`
             : `<button data-id="${gift.id}" data-name="${gift.name}" data-price="${gift.price}" aria-label="Presentear com ${gift.name} via PIX" class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90"><i class="fas fa-qrcode mr-2"></i>Contribuir com PIX</button>`;
 
         return `
-            <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all">
+            <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all relative">
+                ${contributionIndicatorHTML}
                 <div>
                     <img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3>
@@ -339,7 +339,6 @@ export function renderGiftList(gifts, currentUser) {
                 </div>
                 <div class="mt-4">
                     ${actionButtonHTML}
-                    ${contributorsHTML}
                 </div>
             </div>`;
     }).join('');
@@ -385,7 +384,7 @@ export function toggleAuthModal(show) { document.getElementById('auth-modal').cl
 function generateQRCode(pixCode) {
     const placeholder = document.getElementById('qr-placeholder');
     if (!placeholder) return;
-    placeholder.innerHTML = ''; 
+    placeholder.innerHTML = '';
     if (window.QRCode) {
         try { new window.QRCode(placeholder, { text: pixCode, width: 192, height: 192, colorDark: "#000000", colorLight: "#ffffff", correctLevel: window.QRCode.CorrectLevel.H }); }
         catch (error) { console.error("Erro ao gerar QR Code:", error); showQRCodeFallback(placeholder); }
@@ -513,7 +512,7 @@ export function showSocialSignupModal(keyData, onComplete) {
 export function renderDressCodeModal(palettes, userRole) {
     const modal = document.getElementById('dress-code-modal');
     const container = document.getElementById('dress-code-content-container');
-    
+
     if (!palettes[userRole] || palettes[userRole].length === 0) {
         container.innerHTML = `
             <div class="text-center">
@@ -568,7 +567,7 @@ export function renderDressCodeModal(palettes, userRole) {
             </div>
         `;
     }
-    
+
     modal.classList.remove('hidden');
 }
 export function toggleDressCodeModal(show) { document.getElementById('dress-code-modal').classList.toggle('hidden', !show); }
@@ -577,7 +576,7 @@ export function showTutorialModal(onComplete) {
     const modal = document.getElementById('tutorial-modal');
     const contentContainer = document.getElementById('tutorial-content-container');
     const navContainer = document.getElementById('tutorial-nav');
-    
+
     const tutorialSteps = [
         {
             icon: 'fas fa-heart',
@@ -616,9 +615,9 @@ export function showTutorialModal(onComplete) {
             color: 'text-indigo-500'
         }
     ];
-    
+
     let currentStep = 0;
-    
+
     const renderStep = () => {
         const step = tutorialSteps[currentStep];
         contentContainer.innerHTML = `
@@ -637,7 +636,7 @@ export function showTutorialModal(onComplete) {
                 </div>
             </div>
         `;
-        
+
         navContainer.innerHTML = `
             <button id="tutorial-prev" class="px-4 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${currentStep === 0 ? 'invisible' : ''}">
                 <i class="fas fa-chevron-left mr-1"></i> Anterior
@@ -650,7 +649,7 @@ export function showTutorialModal(onComplete) {
                 ${currentStep < tutorialSteps.length - 1 ? '<i class="fas fa-chevron-right ml-1"></i>' : ''}
             </button>
         `;
-        
+
         // Event listeners
         document.getElementById('tutorial-prev')?.addEventListener('click', () => {
             if (currentStep > 0) {
@@ -658,7 +657,7 @@ export function showTutorialModal(onComplete) {
                 renderStep();
             }
         });
-        
+
         document.getElementById('tutorial-next')?.addEventListener('click', () => {
             if (currentStep < tutorialSteps.length - 1) {
                 currentStep++;
@@ -669,7 +668,7 @@ export function showTutorialModal(onComplete) {
             }
         });
     };
-    
+
     renderStep();
     modal.classList.remove('hidden');
 }

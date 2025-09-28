@@ -167,7 +167,7 @@ export function renderDetailsEditor(details) {
         const date = dateField.toDate ? dateField.toDate() : dateField;
         return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
     };
-    
+
     const getDateOnlyForInput = (dateField) => {
         if (!dateField) return '';
         const date = dateField.toDate ? dateField.toDate() : dateField;
@@ -222,7 +222,6 @@ export function renderDetailsEditor(details) {
         </div>
     `;
 
-    // NOVO: HTML para gerenciamento de fotos do carrossel e igreja
     const carouselPhotosHTML = (details.carouselPhotos || []).map((url, index) => `
         <div class="relative group">
             <img src="${getOptimizedCloudinaryUrl(url)}" class="w-24 h-24 object-cover rounded-md" data-url="${url}">
@@ -253,11 +252,10 @@ export function renderDetailsEditor(details) {
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Fotos do Carrossel (Página Inicial)</label>
-                        <input type="file" id="carousel-photo-input" class="hidden" accept="image/*" multiple>
-                        <button type="button" onclick="document.getElementById('carousel-photo-input').click()" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            <i class="fas fa-upload mr-2"></i>Escolher Arquivos
-                        </button>
-                        <div id="carousel-upload-progress" class="mt-2"></div>
+                        <div class="flex items-center gap-2">
+                           <input type="url" id="new-carousel-photo-url" class="w-full p-2 border rounded" placeholder="Cole a URL da imagem aqui...">
+                           <button id="add-carousel-photo-btn" class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 flex-shrink-0">Adicionar</button>
+                        </div>
                         <div id="carousel-photos-preview" class="flex flex-wrap gap-2 mt-2">${carouselPhotosHTML}</div>
                     </div>
                     <div>
@@ -329,7 +327,6 @@ export function renderKeyManager() {
         </div>`;
 }
 
-// NOVO: Renderiza a página de gerenciamento da Timeline
 export function renderTimelineManager() {
     return `
         <h2 class="text-2xl font-bold text-gray-800 mb-6">Gerenciar Timeline do Casal</h2>
@@ -506,6 +503,7 @@ export function updateGuestbookAdminList(messages) {
     listEl.innerHTML = messages.map(msg => `<div class="p-3 border rounded-md flex justify-between items-start hover:bg-gray-50"><div><p class="text-sm">${msg.message}</p><p class="text-xs text-gray-500 mt-1">- ${msg.userName}</p></div><button data-id="${msg.id}" class="delete-message-btn text-red-400 hover:text-red-600 flex-shrink-0 ml-4" aria-label="Excluir mensagem"><i class="fas fa-trash"></i></button></div>`).join('');
 }
 
+// ========= MODIFICADO =========
 export function updateGiftsAdminList(gifts) {
     const listEl = document.getElementById('gifts-list-admin');
     if (!listEl) return;
@@ -514,12 +512,29 @@ export function updateGiftsAdminList(gifts) {
         return;
     }
     listEl.innerHTML = gifts.map(gift => {
-        const takenClass = gift.isTaken ? 'bg-green-100' : '';
+        const contributors = gift.contributors || [];
+        const hasContributors = contributors.length > 0;
+        const takenClass = hasContributors ? 'bg-green-50' : '';
         const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl);
         const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor não definido';
+
+        // Cria a lista de nomes dos contribuidores
+        let contributorsListHTML = '';
+        if (hasContributors) {
+            const contributorNames = contributors.map(c => c.userName).join(', ');
+            contributorsListHTML = `<p class="text-xs text-green-700 mt-1">Contribuído por: <strong>${contributorNames}</strong></p>`;
+        }
+
         return `
             <div class="p-3 border-b flex justify-between items-center hover:bg-gray-50 ${takenClass}">
-                <div class="flex items-center"><img src="${optimizedImageUrl}" alt="${gift.name}" class="w-12 h-12 object-cover rounded-md mr-4"><div><p class="font-semibold">${gift.name}</p><p class="text-sm font-bold text-indigo-600">${formattedPrice}</p>${gift.isTaken ? `<p class="text-xs text-green-700">Escolhido por: ${gift.takenBy}</p>` : ''}</div></div>
+                <div class="flex items-center">
+                    <img src="${optimizedImageUrl}" alt="${gift.name}" class="w-12 h-12 object-cover rounded-md mr-4">
+                    <div>
+                        <p class="font-semibold">${gift.name}</p>
+                        <p class="text-sm font-bold text-indigo-600">${formattedPrice}</p>
+                        ${contributorsListHTML}
+                    </div>
+                </div>
                 <div class="flex space-x-2">
                     <button data-id="${gift.id}" class="edit-gift-btn text-gray-400 hover:text-blue-600" aria-label="Editar presente"><i class="fas fa-edit"></i></button>
                     <button data-id="${gift.id}" class="delete-gift-btn text-gray-400 hover:text-red-600" aria-label="Excluir presente"><i class="fas fa-trash"></i></button>
@@ -527,8 +542,8 @@ export function updateGiftsAdminList(gifts) {
             </div>`;
     }).join('');
 }
+// ========= FIM DA MODIFICAÇÃO =========
 
-// NOVO: Atualiza a lista de eventos da timeline no admin
 export function updateTimelineEventsList(events) {
     const listEl = document.getElementById('timeline-events-list');
     if (!listEl) return;
