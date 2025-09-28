@@ -60,10 +60,10 @@ export async function getWeddingDetails() {
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
-            return { 
-                ...data, 
-                weddingDate: data.weddingDate.toDate(), 
-                rsvpDate: data.rsvpDate.toDate() 
+            return {
+                ...data,
+                weddingDate: data.weddingDate.toDate(),
+                rsvpDate: data.rsvpDate.toDate()
             };
         }
         return null;
@@ -105,7 +105,7 @@ export async function findAccessKeyForUser(userId) {
             const doc = snapshot.docs[0];
             return { key: doc.id, data: doc.data() };
         }
-        
+
         const emailSnapshot = await db.collection('accessKeys')
             .where('usedByEmail', '==', currentUser.email)
             .limit(1)
@@ -127,7 +127,7 @@ export async function findAccessKeyForUser(userId) {
 export async function signupUser({ name, email, password, keyDocId, guestNames, willAttendRestaurant, socialProvider = null, user = null }) {
     try {
         let currentUser = user;
-        
+
         if (!currentUser && password) {
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             currentUser = userCredential.user;
@@ -181,7 +181,7 @@ export async function updateRsvpDetails(keyId, { guestNames, willAttendRestauran
         const guestNamesCollection = db.collection('accessKeys').doc(keyId).collection('guestNames');
         const existingNames = await guestNamesCollection.get();
         const batch = db.batch();
-        
+
         existingNames.forEach(doc => batch.delete(doc.ref));
         guestNames.forEach((guestName, index) => {
             const guestRef = guestNamesCollection.doc(`guest_${index}`);
@@ -202,7 +202,7 @@ export async function getGuestNames(keyId) {
             .collection('guestNames')
             .orderBy('order')
             .get();
-        
+
         return snapshot.docs.map(doc => doc.data().name);
     } catch (error) {
         console.error('Error fetching guest names:', error);
@@ -264,18 +264,26 @@ export function listenToGiftList(onGiftsUpdate) {
     );
 }
 
-export function markGiftAsTaken(giftId, user) {
+// ========= MODIFICADO =========
+// Adiciona um contribuidor a um presente
+export function addContributorToGift(giftId, user) {
+    const contributor = {
+        userId: user.uid,
+        userName: user.displayName
+    };
     return db.collection('giftList').doc(giftId).update({
-        isTaken: true,
-        takenBy: user.displayName,
-        takenById: user.uid
+        contributors: firebase.firestore.FieldValue.arrayUnion(contributor)
     });
 }
 
-export function unmarkGiftAsTaken(giftId) {
+// Remove um contribuidor de um presente
+export function removeContributorFromGift(giftId, user) {
+    const contributor = {
+        userId: user.uid,
+        userName: user.displayName
+    };
     return db.collection('giftList').doc(giftId).update({
-        isTaken: false,
-        takenBy: null,
-        takenById: null
+        contributors: firebase.firestore.FieldValue.arrayRemove(contributor)
     });
 }
+// ========= FIM DA MODIFICAÇÃO =========
