@@ -288,6 +288,7 @@ async function setupViewSpecificListeners() {
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
 
+    // ========= MODIFICADO =========
     if (appState.currentView === 'gifts' && appState.currentUser) {
         appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
             UI.renderGiftList(gifts, appState.currentUser);
@@ -295,11 +296,12 @@ async function setupViewSpecificListeners() {
                 const button = e.currentTarget;
                 UI.setButtonLoading(button, true);
                 try {
-                    await Firebase.unmarkGiftAsTaken(button.dataset.id);
-                    UI.showToast('Escolha desfeita.', 'success');
+                    // Alterado para remover contribuidor
+                    await Firebase.removeContributorFromGift(button.dataset.id, appState.currentUser);
+                    UI.showToast('Contribuição desfeita.', 'success');
                 } catch (err) {
-                    console.error("Error unmarking gift:", err);
-                    UI.showToast('Erro ao desfazer a escolha.', 'error');
+                    console.error("Error removing contribution:", err);
+                    UI.showToast('Erro ao desfazer a contribuição.', 'error');
                 } finally { UI.setButtonLoading(button, false); }
             }));
             UI.initializeGiftEventListeners(appState.weddingDetails, appState.currentUser);
@@ -315,6 +317,7 @@ async function setupViewSpecificListeners() {
             });
         });
     }
+    // ========= FIM DA MODIFICAÇÃO =========
     
     if (appState.currentView === 'rsvp') {
         document.getElementById('open-login-button')?.addEventListener('click', () => { UI.renderAuthForm('login'); setupAuthFormListeners(); });
@@ -400,6 +403,7 @@ async function updateUserArea(user) {
     }
 }
 
+// ========= MODIFICADO =========
 function setupModalListeners() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     document.getElementById('close-pix-modal').addEventListener('click', () => UI.togglePixModal(false));
@@ -419,17 +423,20 @@ function setupModalListeners() {
             UI.setButtonLoading(confirmButton, true);
             try {
                 if (giftId !== 'custom') {
-                    await Firebase.markGiftAsTaken(giftId, appState.currentUser);
+                    // Alterado para adicionar contribuidor
+                    await Firebase.addContributorToGift(giftId, appState.currentUser);
                 }
                 UI.togglePixModal(false);
-                UI.showToast('Obrigado pelo seu presente!', 'success');
+                // Mensagem alterada
+                UI.showToast('Obrigado pela sua contribuição!', 'success');
             } catch (err) {
-                console.error("Erro ao marcar presente:", err);
-                UI.showToast("Ocorreu um erro ao confirmar o seu presente.", 'error');
+                console.error("Erro ao adicionar contribuição:", err);
+                UI.showToast("Ocorreu um erro ao confirmar a sua contribuição.", 'error');
             }
         }
     });
 }
+// ========= FIM DA MODIFICAÇÃO =========
 
 window.onpopstate = (event) => {
     if (event.state?.view) {

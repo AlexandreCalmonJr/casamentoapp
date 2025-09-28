@@ -22,7 +22,6 @@ export function showToast(message, type = 'success') {
 
 function getOptimizedCloudinaryUrl(url, transformations = 'w_400,h_400,c_fill,q_auto') {
     if (!url || !url.includes('res.cloudinary.com')) return url || `https://placehold.co/400x300/EEE/31343C?text=Presente`;
-    // Adiciona uma transformação de 'f_auto' para servir o melhor formato de imagem (ex: webp)
     return url.replace('/image/upload/', `/image/upload/${transformations},f_auto/`);
 }
 
@@ -285,6 +284,7 @@ export function renderGuestbookMessages(messages) {
     }
 }
 
+// ========= MODIFICADO =========
 export function renderGiftList(gifts, currentUser) {
     const container = document.getElementById('gift-list-container');
     if (!container) return;
@@ -312,15 +312,41 @@ export function renderGiftList(gifts, currentUser) {
     }
 
     const giftCardsHTML = gifts.map(gift => {
-        const isTaken = gift.isTaken;
-        const isTakenByMe = isTaken && gift.takenById === currentUser.uid;
+        const contributors = gift.contributors || [];
+        const isTakenByMe = contributors.some(c => c.userId === currentUser.uid);
+        const hasContributors = contributors.length > 0;
+
         const optimizedImageUrl = getOptimizedCloudinaryUrl(gift.imageUrl, 'w_400,h_300,c_fill,q_auto');
         const formattedPrice = gift.price ? `R$ ${Number(gift.price).toFixed(2).replace('.', ',')}` : 'Valor simbólico';
-        return `<div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all ${isTaken && !isTakenByMe ? 'opacity-50' : ''}"><div><img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4"><h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3><p class="text-lg font-bold text-primary dark:text-dark-primary mt-2">${formattedPrice}</p><p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description || ''}</p></div><div class="mt-4">${isTaken ? (isTakenByMe ? `<button data-id="${gift.id}" aria-label="Desfazer escolha do presente ${gift.name}" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer escolha</button>` : `<div class="text-center text-sm text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50">Presenteado por ${gift.takenBy}</div>`) : `<button data-id="${gift.id}" data-name="${gift.name}" data-price="${gift.price}" aria-label="Presentear com ${gift.name} via PIX" class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90"><i class="fas fa-qrcode mr-2"></i>Presentear com PIX</button>`}</div></div>`;
+        
+        let contributorsHTML = '';
+        if (hasContributors) {
+            const contributorNames = contributors.map(c => c.userName.split(' ')[0]).join(', ');
+            contributorsHTML = `<div class="text-center text-xs text-green-600 dark:text-green-400 font-semibold p-2 rounded bg-green-50 dark:bg-green-900/50 mt-2">Contribuído por: ${contributorNames}</div>`;
+        }
+
+        const actionButtonHTML = isTakenByMe 
+            ? `<button data-id="${gift.id}" aria-label="Desfazer contribuição" class="unmark-gift-btn w-full py-2 text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Desfazer contribuição</button>`
+            : `<button data-id="${gift.id}" data-name="${gift.name}" data-price="${gift.price}" aria-label="Presentear com ${gift.name} via PIX" class="present-with-pix-btn w-full py-2 text-sm bg-primary text-white rounded hover:bg-opacity-90"><i class="fas fa-qrcode mr-2"></i>Contribuir com PIX</button>`;
+
+        return `
+            <div class="bg-white dark:bg-dark-card border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between transition-all">
+                <div>
+                    <img src="${optimizedImageUrl}" alt="${gift.name}" class="w-full h-40 object-cover rounded-md mb-4">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200">${gift.name}</h3>
+                    <p class="text-lg font-bold text-primary dark:text-dark-primary mt-2">${formattedPrice}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${gift.description || ''}</p>
+                </div>
+                <div class="mt-4">
+                    ${actionButtonHTML}
+                    ${contributorsHTML}
+                </div>
+            </div>`;
     }).join('');
 
     container.innerHTML = donationCardHTML + giftCardsHTML;
 }
+// ========= FIM DA MODIFICAÇÃO =========
 
 function addFormValidation() {
     document.querySelectorAll('input[required], textarea[required]').forEach(input => {
@@ -377,9 +403,9 @@ export function renderPixModal(gift, weddingDetails) {
         const pixCode = generatePixCode(
             weddingDetails.pixKey,
             'casar',
-            'SALVADOR',                 // Cidade
-            parseFloat(gift.price),     // Garante que o valor é um número
-            gift.id                      // ID da transação`
+            'SALVADOR',
+            parseFloat(gift.price),
+            gift.id
         );
         pixContainer.innerHTML = `<div class="text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Presentear com PIX</h2><p class="text-gray-600 dark:text-gray-400 mb-4">Você está a presentear com: <strong>${gift.name}</strong></p><div id="qr-placeholder" class="flex justify-center p-2 bg-white rounded-lg mx-auto mb-4 w-[208px] h-[208px]"></div><p class="text-lg font-bold text-primary dark:text-dark-primary mt-4">Valor: R$ ${parseFloat(gift.price).toFixed(2).replace('.', ',')}</p><div class="mt-6"><p class="text-sm font-medium mb-2">1. Abra a app do seu banco e aponte a câmara para o QR Code.</p><p class="text-sm font-medium mb-4">2. Ou use o PIX Copia e Cola abaixo:</p><div class="flex items-center"><input id="pix-copy-paste" type="text" readonly value="${pixCode}" class="w-full p-2 text-xs bg-gray-200 dark:bg-gray-800 border rounded-l-md"><button id="copy-pix-button" aria-label="Copiar código PIX" class="bg-gray-300 dark:bg-gray-700 px-4 py-2 border-y border-r rounded-r-md hover:bg-gray-400"><i class="fas fa-copy"></i></button></div></div><div class="mt-8 border-t dark:border-gray-700 pt-4"><p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Após realizar o pagamento no seu banco, clique no botão abaixo para confirmar o seu presente.</p><button id="confirm-gift-button" data-id="${gift.id}" class="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700"><i class="fas fa-check-circle mr-2"></i>Já fiz o PIX, confirmar presente!</button></div></div>`;
         setTimeout(() => { generateQRCode(pixCode); }, 100);
