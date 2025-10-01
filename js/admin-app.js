@@ -7,7 +7,7 @@ import { PDFGenerator } from './pdf-generator.js';
 
 const state = {
     currentTab: 'report',
-    unsubscribe: {}, 
+    unsubscribe: {},
     weddingDetails: null,
     reportChart: null,
 };
@@ -26,12 +26,21 @@ const DOMElements = {
     sidebar: document.getElementById('sidebar'),
 };
 
-function showShareModal(guestName, key, allowedGuests, phone) {
+// *** NOVO ***: Função para detetar se é um dispositivo móvel
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// *** ATUALIZADO ***: Lógica de compartilhamento robusta
+async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
     const siteBaseUrl = window.location.origin;
     const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
+    
     document.getElementById('modal-guest-name').textContent = guestName;
     document.getElementById('modal-allowed-guests').textContent = allowedGuests;
     document.getElementById('invite-link').value = fullLink;
+    
+    // QR Code
     const qrCodeContainer = document.getElementById('qrcode');
     qrCodeContainer.innerHTML = '';
     new QRCode(qrCodeContainer, {
@@ -39,28 +48,77 @@ function showShareModal(guestName, key, allowedGuests, phone) {
         colorDark: "#000000", colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.H
     });
+    
     setTimeout(() => {
         const canvas = qrCodeContainer.querySelector('canvas');
         if (canvas) document.getElementById('download-qr-button').href = canvas.toDataURL();
     }, 100);
 
-    const whatsappBtn = document.getElementById('whatsapp-share-button');
+    const shareActionsContainer = document.getElementById('share-actions-container');
+    shareActionsContainer.innerHTML = '';
+
     if (phone && state.weddingDetails?.whatsappMessageTemplate) {
         const cleanPhone = phone.replace(/\D/g, '');
-        
-        // LÓGICA REVERTIDA: A mensagem agora é apenas o template preenchido
-        let message = state.weddingDetails.whatsappMessageTemplate
+        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        const message = state.weddingDetails.whatsappMessageTemplate
             .replace('{nome_convidado}', guestName)
             .replace('{nomes_casal}', state.weddingDetails.coupleNames)
             .replace('{link_convite}', fullLink);
 
-        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
-        
-        whatsappBtn.onclick = () => window.open(whatsappUrl, '_blank');
-        whatsappBtn.classList.remove('hidden');
-    } else {
-        whatsappBtn.classList.add('hidden');
+        let useNativeShare = isMobile() && state.weddingDetails.shareImage && navigator.share && navigator.canShare;
+        let nativeShareReady = false;
+
+        if (useNativeShare) {
+            try {
+                const response = await fetch(state.weddingDetails.shareImage);
+                const blob = await response.blob();
+                const imageFile = new File([blob], 'convite.jpg', { type: blob.type });
+                const shareData = {
+                    title: `Convite - ${state.weddingDetails.coupleNames}`,
+                    text: message,
+                    files: [imageFile]
+                };
+                
+                if (navigator.canShare(shareData)) {
+                    shareActionsContainer.innerHTML = `
+                        <button id="native-share-button" class="w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center justify-center">
+                            <i class="fas fa-share-alt mr-2"></i>Enviar Convite com Imagem
+                        </button>
+                    `;
+                    document.getElementById('native-share-button').onclick = async () => {
+                        try {
+                            await navigator.share(shareData);
+                        } catch (error) {
+                            if (error.name !== 'AbortError') {
+                                console.error('Erro no compartilhamento nativo:', error);
+                            }
+                        }
+                    };
+                    nativeShareReady = true;
+                }
+            } catch (e) {
+                console.error("Não foi possível carregar a imagem para o compartilhamento nativo:", e);
+                nativeShareReady = false;
+            }
+        }
+
+        // Fallback para Desktop ou se o compartilhamento nativo falhar na preparação
+        if (!nativeShareReady) {
+            const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
+            let desktopHtml = `
+                <p class="text-xs text-center text-gray-500 mb-2 font-semibold">Opções de Envio:</p>
+                ${state.weddingDetails.shareImage ? `
+                    <a href="${state.weddingDetails.shareImage}" download="convite.jpg" class="mb-2 block w-full py-2 px-4 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm flex items-center justify-center">
+                        <i class="fas fa-download mr-2"></i>1. Baixar Imagem
+                    </a>
+                ` : ''}
+                <a href="${whatsappUrl}" target="_blank" class="block w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center justify-center">
+                    <i class="fab fa-whatsapp mr-2"></i>${state.weddingDetails.shareImage ? '2. Abrir WhatsApp' : 'Enviar via WhatsApp'}
+                </a>
+                ${state.weddingDetails.shareImage ? `<p class="text-xs text-center text-gray-500 mt-2">Depois, anexe a imagem baixada na conversa.</p>` : ''}
+            `;
+            shareActionsContainer.innerHTML = desktopHtml;
+        }
     }
     DOMElements.shareModal.classList.remove('hidden');
 }
@@ -105,6 +163,7 @@ async function handleSaveDetails(event) {
         dressCodePalettes: dressCodePalettes,
         carouselPhotos: carouselPhotos,
         venuePhoto: document.getElementById('form-venue-photo-url').value.trim(),
+        shareImage: document.getElementById('form-share-image-url').value.trim() || null,
     };
 
     await db.collection('siteConfig').doc('details').update(updatedDetails);
@@ -141,7 +200,7 @@ async function handleGenerateKey() {
         willAttendRestaurant: null
     });
     
-    showShareModal(guestName, newKey, allowedGuests, guestPhone);
+    showShareModalWithImage(guestName, newKey, allowedGuests, guestPhone);
     document.getElementById('guest-name').value = '';
     document.getElementById('guest-phone').value = '';
     UI.setButtonLoading(generateBtn, false);
@@ -182,7 +241,6 @@ async function handleEditGift(event) {
     });
 }
 
-// NOVO: Funções de CRUD para a Timeline
 async function handleAddTimelineEvent(event) {
     event.preventDefault();
     const form = event.target;
@@ -276,7 +334,7 @@ async function handleExportCSV() {
 
 function handleShareKey(event) {
     const keyData = JSON.parse(event.currentTarget.dataset.key);
-    showShareModal(keyData.guestName, keyData.id, keyData.allowedGuests, keyData.guestPhone);
+    showShareModalWithImage(keyData.guestName, keyData.id, keyData.allowedGuests, keyData.guestPhone);
 }
 
 function cleanupListeners() {
@@ -317,7 +375,6 @@ function setupPaletteEditorListeners() {
     });
 }
 
-// NOVO: Listeners para gerenciar fotos na página de configurações
 function setupDetailsPhotoListeners() {
     const addCarouselBtn = document.getElementById('add-carousel-photo-btn');
     const previewContainer = document.getElementById('carousel-photos-preview');
@@ -348,7 +405,6 @@ function setupDetailsPhotoListeners() {
     }
 }
 
-// Função genérica para lidar com o upload de uma imagem
 async function handleImageUpload(inputId, urlHiddenId, progressBarId, previewId) {
     const fileInput = document.getElementById(inputId);
     const file = fileInput.files[0];
@@ -374,6 +430,96 @@ async function handleImageUpload(inputId, urlHiddenId, progressBarId, previewId)
     }
 }
 
+async function setupShareImageListeners() {
+    const fileInput = document.getElementById('share-image-input');
+    const removeBtn = document.getElementById('remove-share-image-btn');
+    
+    if (!fileInput) return;
+    
+    fileInput.addEventListener('change', async () => {
+        await handleImageUpload(
+            'share-image-input',
+            'form-share-image-url',
+            'share-image-progress-bar',
+            'share-image-preview'
+        );
+        
+        const previewContainer = document.getElementById('share-image-preview');
+        const imageUrl = document.getElementById('form-share-image-url').value;
+        
+        if (imageUrl) {
+            previewContainer.innerHTML = `
+                <div class="relative inline-block">
+                    <img src="${imageUrl}"
+                         class="rounded-lg max-w-sm shadow-lg border-4 border-green-100"
+                         alt="Imagem de compartilhamento">
+                    <div class="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center">
+                        <i class="fas fa-check-circle mr-1"></i>Ativa
+                    </div>
+                </div>
+                <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p class="text-sm text-green-700 flex items-center">
+                        <i class="fas fa-whatsapp text-green-600 mr-2"></i>
+                        Esta imagem será enviada ao compartilhar convites no WhatsApp
+                    </p>
+                </div>
+            `;
+            
+            const uploadButton = document.querySelector('[onclick="document.getElementById(\'share-image-input\').click()"]');
+            if (uploadButton && !document.getElementById('remove-share-image-btn')) {
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.id = 'remove-share-image-btn';
+                removeButton.className = 'py-2 px-4 bg-red-500 text-white rounded hover:bg-red-600 transition-colors';
+                removeButton.innerHTML = '<i class="fas fa-trash mr-2"></i>Remover';
+                uploadButton.parentElement.insertBefore(removeButton, uploadButton.nextSibling);
+                removeButton.addEventListener('click', handleRemoveShareImage);
+            }
+            
+            if (uploadButton) {
+                uploadButton.innerHTML = '<i class="fas fa-upload mr-2"></i>Trocar Imagem';
+            }
+        }
+    });
+    
+    if (removeBtn) {
+        removeBtn.addEventListener('click', handleRemoveShareImage);
+    }
+}
+
+async function handleRemoveShareImage() {
+    const confirmed = await UI.showConfirmationModal({
+        title: 'Remover Imagem?',
+        message: 'A imagem personalizada será removida. Uma imagem automática será gerada ao compartilhar.',
+        confirmText: 'Remover',
+        isDestructive: true
+    });
+    
+    if (!confirmed) return;
+    
+    document.getElementById('form-share-image-url').value = '';
+    
+    const previewContainer = document.getElementById('share-image-preview');
+    previewContainer.innerHTML = `
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+            <i class="fas fa-image text-5xl text-gray-300 mb-3"></i>
+            <p class="text-sm font-medium text-gray-600 mb-1">Nenhuma imagem personalizada</p>
+            <p class="text-xs text-gray-500">
+                Uma imagem será gerada automaticamente ao compartilhar.
+            </p>
+        </div>
+    `;
+    
+    const removeBtn = document.getElementById('remove-share-image-btn');
+    if (removeBtn) removeBtn.remove();
+    
+    const uploadButton = document.querySelector('[onclick="document.getElementById(\'share-image-input\').click()"]');
+    if (uploadButton) {
+        uploadButton.innerHTML = '<i class="fas fa-upload mr-2"></i>Escolher Imagem';
+    }
+    
+    UI.showToast('Imagem removida. Salve as alterações para confirmar.', 'info');
+}
 
 async function loadTab(tabName) {
     state.currentTab = tabName;
@@ -390,6 +536,8 @@ async function loadTab(tabName) {
         
         document.getElementById('venue-photo-input').addEventListener('change', () => handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview'));
         
+        setupShareImageListeners();
+
         const pdfGenerator = new PDFGenerator();
         document.querySelectorAll('[id^="preview-pdf-"]').forEach(button => {
             button.addEventListener('click', async (e) => {
@@ -418,7 +566,6 @@ async function loadTab(tabName) {
         state.unsubscribe.keys = db.collection('accessKeys').orderBy('createdAt', 'desc').onSnapshot(snap => renderKeys(snap.docs));
         searchInput.addEventListener('input', () => db.collection('accessKeys').orderBy('createdAt', 'desc').get().then(snap => renderKeys(snap.docs)));
     
-    // NOVO: Lógica para a aba Timeline
     } else if (tabName === 'timeline') {
         DOMElements.tabContent.innerHTML = UI.renderTimelineManager();
         document.getElementById('add-timeline-event-form').addEventListener('submit', handleAddTimelineEvent);
