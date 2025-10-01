@@ -273,6 +273,85 @@ export function renderDetailsEditor(details) {
                 </div>
             </div>
             
+            <div class="border-t pt-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-share-alt text-indigo-600 mr-2"></i>
+                    Imagem para Compartilhamento
+                </h3>
+                
+                <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3 flex-shrink-0"></i>
+                        <div class="text-sm text-blue-700">
+                            <p class="font-semibold mb-1">Para que serve esta imagem?</p>
+                            <p>Esta é a imagem que será enviada quando você compartilhar convites via WhatsApp. 
+                            Pode ser um design personalizado do convite, foto do casal, ou qualquer imagem representativa.</p>
+                            <p class="mt-2 text-xs">
+                                <strong>Sem imagem?</strong> O link será enviado normalmente no WhatsApp.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            Upload da Imagem de Compartilhamento
+                            <span class="text-xs text-gray-500 ml-2">(Recomendado: 1080x1350px)</span>
+                        </label>
+                        
+                        <input type="file" id="share-image-input" class="hidden" accept="image/*">
+                        <input type="hidden" id="form-share-image-url" value="${details.shareImage || ''}">
+                        
+                        <div class="flex gap-2 flex-wrap">
+                            <button type="button" onclick="document.getElementById('share-image-input').click()"
+                                    class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center transition-colors">
+                                <i class="fas fa-upload mr-2"></i>
+                                ${details.shareImage ? 'Trocar Imagem' : 'Escolher Imagem'}
+                            </button>
+                            
+                            ${details.shareImage ? `
+                                <button type="button" id="remove-share-image-btn"
+                                        class="py-2 px-4 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">
+                                    <i class="fas fa-trash mr-2"></i>Remover
+                                </button>
+                            ` : ''}
+                        </div>
+                        
+                        <div id="share-image-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden">
+                            <div id="share-image-progress-bar" class="bg-green-600 h-2.5 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        
+                        <div id="share-image-preview" class="mt-4">
+                            ${details.shareImage ? `
+                                <div class="relative inline-block">
+                                    <img src="${getOptimizedCloudinaryUrl(details.shareImage)}"
+                                         class="rounded-lg max-w-sm shadow-lg border-4 border-green-100"
+                                         alt="Imagem de compartilhamento">
+                                    <div class="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center">
+                                        <i class="fas fa-check-circle mr-1"></i>Ativa
+                                    </div>
+                                </div>
+                                <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                    <p class="text-sm text-green-700 flex items-center">
+                                        <i class="fas fa-whatsapp text-green-600 mr-2"></i>
+                                        Esta imagem será enviada ao compartilhar convites no WhatsApp
+                                    </p>
+                                </div>
+                            ` : `
+                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                                    <i class="fas fa-image text-5xl text-gray-300 mb-3"></i>
+                                    <p class="text-sm font-medium text-gray-600 mb-1">Nenhuma imagem personalizada</p>
+                                    <p class="text-xs text-gray-500">
+                                        Apenas o texto e link serão enviados
+                                    </p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="border-t pt-4">
                 <h3 class="text-xl font-bold text-gray-800 mb-4">Paletas de Cores</h3>
                 <div id="palette-editor" class="space-y-6">${paletteEditorHTML}</div>
@@ -289,7 +368,6 @@ export function renderDetailsEditor(details) {
             <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>
         </div>`;
 }
-
 
 export function renderKeyManager() {
     return `
