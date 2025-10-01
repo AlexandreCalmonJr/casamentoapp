@@ -26,12 +26,38 @@ const DOMElements = {
     sidebar: document.getElementById('sidebar'),
 };
 
-// *** NOVO ***: Função para detetar se é um dispositivo móvel
 function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// *** ATUALIZADO ***: Lógica de compartilhamento robusta
+// *** NOVO ***: Função auxiliar para copiar texto para a área de transferência
+function copyTextToClipboard(text) {
+    if (!navigator.clipboard) {
+        // Fallback para navegadores mais antigos
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed"; // Evita que a página "salte"
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            UI.showToast('Texto do convite copiado!', 'success');
+        } catch (err) {
+            console.error('Fallback: Não foi possível copiar o texto', err);
+        }
+        document.body.removeChild(textArea);
+        return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        UI.showToast('Texto do convite copiado!', 'success');
+    }).catch(err => {
+        console.error('Não foi possível copiar o texto: ', err);
+    });
+}
+
+
+// *** ATUALIZADO ***: Lógica de partilha revista para telemóvel e computador
 async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
     const siteBaseUrl = window.location.origin;
     const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
@@ -73,39 +99,44 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
                 const response = await fetch(state.weddingDetails.shareImage);
                 const blob = await response.blob();
                 const imageFile = new File([blob], 'convite.jpg', { type: blob.type });
+                
+                // *** LÓGICA DE PARTILHA MÓVEL CORRIGIDA ***
+                // Agora partilhamos APENAS o ficheiro e copiamos o texto.
                 const shareData = {
+                    files: [imageFile],
                     title: `Convite - ${state.weddingDetails.coupleNames}`,
-                    text: message,
-                    files: [imageFile]
                 };
                 
                 if (navigator.canShare(shareData)) {
                     shareActionsContainer.innerHTML = `
                         <button id="native-share-button" class="w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center justify-center">
-                            <i class="fas fa-share-alt mr-2"></i>Enviar Convite com Imagem
+                            <i class="fas fa-share-alt mr-2"></i>Enviar Convite
                         </button>
                     `;
                     document.getElementById('native-share-button').onclick = async () => {
                         try {
+                            // Copia o texto primeiro
+                            copyTextToClipboard(message);
+                            // Depois abre a partilha da imagem
                             await navigator.share(shareData);
                         } catch (error) {
                             if (error.name !== 'AbortError') {
-                                console.error('Erro no compartilhamento nativo:', error);
+                                console.error('Erro na partilha nativa:', error);
                             }
                         }
                     };
                     nativeShareReady = true;
                 }
             } catch (e) {
-                console.error("Não foi possível carregar a imagem para o compartilhamento nativo:", e);
+                console.error("Não foi possível carregar a imagem para partilha nativa:", e);
                 nativeShareReady = false;
             }
         }
 
-        // Fallback para Desktop ou se o compartilhamento nativo falhar na preparação
+        // Fallback para Computador ou se a partilha nativa falhar
         if (!nativeShareReady) {
             const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
-            let desktopHtml = `
+            let fallbackHtml = `
                 <p class="text-xs text-center text-gray-500 mb-2 font-semibold">Opções de Envio:</p>
                 ${state.weddingDetails.shareImage ? `
                     <a href="${state.weddingDetails.shareImage}" download="convite.jpg" class="mb-2 block w-full py-2 px-4 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm flex items-center justify-center">
@@ -117,7 +148,7 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
                 </a>
                 ${state.weddingDetails.shareImage ? `<p class="text-xs text-center text-gray-500 mt-2">Depois, anexe a imagem baixada na conversa.</p>` : ''}
             `;
-            shareActionsContainer.innerHTML = desktopHtml;
+            shareActionsContainer.innerHTML = fallbackHtml;
         }
     }
     DOMElements.shareModal.classList.remove('hidden');
