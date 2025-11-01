@@ -64,6 +64,47 @@ function renderCarousel(photos) {
     `;
 }
 
+
+function renderAboutSection(weddingDetails) {
+    const aboutConfig = weddingDetails.aboutUs || { mode: 'timeline' };
+
+    if (aboutConfig.mode === 'text') {
+        const textData = aboutConfig.text || {};
+        const imageHTML = textData.imageUrl
+            ? `<img src="${getOptimizedCloudinaryUrl(textData.imageUrl, 'w_800,c_fill,q_auto')}" 
+                    class="w-full h-64 md:h-96 object-cover rounded-xl shadow-lg mb-6" 
+                    alt="${textData.title}">`
+            : '';
+
+        return `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <h1 class="text-4xl font-cursive text-primary dark:text-dark-primary mb-2">
+                        ${textData.title || 'Nossa História'}
+                    </h1>
+                </div>
+                ${imageHTML}
+                <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 md:p-8">
+                    <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        ${textData.content || 'Conte aqui a história do casal...'}
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // Mode: timeline - Usar a função existente renderTimeline
+        return `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <h1 class="text-4xl font-cursive text-primary dark:text-dark-primary mb-2">Nossa Jornada</h1>
+                    <p class="text-gray-600 dark:text-gray-400">Os momentos especiais que nos trouxeram até aqui</p>
+                </div>
+                <div id="timeline-container"></div>
+            </div>
+        `;
+    }
+}
+
 export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) {
     if (!weddingDetails) return `<div class="text-center p-8"><div class="animate-pulse"><div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div><div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div></div></div>`;
 
@@ -74,19 +115,45 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
 
     switch (viewName) {
         case 'home':
-            return `
-                <div class="space-y-8 text-center">
-                    ${renderCarousel(weddingDetails.carouselPhotos)}
-                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8">
-                        <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">${weddingDetails.coupleNames}</h1>
-                        <p class="text-gray-600 dark:text-gray-400">Temos a honra de convidar para a celebração do nosso amor!</p>
-                    </div>
-                    <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2>
-                        <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
-                    </div>
-                </div>`;
+            const bgConfig = weddingDetails.homeBackground || { enabled: false };
+            let bgStyle = '';
+            let bgHTML = '';
 
+            if (bgConfig.enabled && bgConfig.imageUrl) {
+                const orientation = bgConfig.orientation || 'horizontal';
+                const opacity = bgConfig.opacity || 0.3;
+
+                bgHTML = `
+            <div class="fixed inset-0 z-0 overflow-hidden">
+                <img src="${bgConfig.imageUrl}" 
+                    class="w-full h-full ${orientation === 'vertical' ? 'object-cover' : 'object-cover'}" 
+                    style="object-position: center;" 
+                    alt="Background">
+                <div class="absolute inset-0 bg-black" style="opacity: ${opacity};"></div>
+            </div>
+        `;
+            }
+
+            return `
+        ${bgHTML}
+        <div class="relative z-10 space-y-8 text-center">
+            ${renderCarousel(weddingDetails.carouselPhotos)}
+            <div class="bg-light-card/95 dark:bg-dark-card/95 backdrop-blur-sm rounded-xl shadow-md p-8">
+                <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">
+                    ${weddingDetails.coupleNames}
+                </h1>
+                <p class="text-gray-600 dark:text-gray-400">
+                    Temos a honra de convidar para a celebração do nosso amor!
+                </p>
+            </div>
+            <div class="bg-light-card/95 dark:bg-dark-card/95 backdrop-blur-sm rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2>
+                <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
+            </div>
+        </div>
+    `;
+        case 'about':
+            return renderAboutSection(weddingDetails);
         case 'details':
             const venuePhotoHTML = weddingDetails.venuePhoto
                 ? `<img src="${getOptimizedCloudinaryUrl(weddingDetails.venuePhoto, 'w_800,c_fill,q_auto')}" alt="Local da Cerimônia" class="w-full h-auto rounded-lg mb-6 shadow-md">`

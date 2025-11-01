@@ -287,7 +287,15 @@ async function setupViewSpecificListeners() {
         if (appState.currentUser) document.getElementById('guestbook-form')?.addEventListener('submit', handleGuestbookSubmit);
         appState.guestbookUnsubscribe = Firebase.listenToGuestbookMessages(UI.renderGuestbookMessages);
     }
-
+    
+    if (appState.currentView === 'about' && appState.weddingDetails) {
+        const aboutConfig = appState.weddingDetails.aboutUs || { mode: 'timeline' };
+        if (aboutConfig.mode === 'timeline') {
+            appState.timelineUnsubscribe = Firebase.listenToTimeline((events) => {
+                UI.renderTimeline(events);
+            });
+        }
+    }
     // ========= MODIFICADO =========
     if (appState.currentView === 'gifts' && appState.currentUser) {
         appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
@@ -494,7 +502,7 @@ async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         const keyFromUrl = urlParams.get('key');
         const viewFromHash = window.location.hash.substring(1);
-        const validViews = ['home', 'details', 'guest-photos', 'guestbook', 'gifts', 'rsvp'];
+        const validViews = ['home', 'about', 'details', 'guest-photos', 'guestbook', 'gifts', 'rsvp'];
         appState.currentView = validViews.includes(viewFromHash) ? viewFromHash : 'home';
 
         Firebase.auth.onAuthStateChanged(async (user) => {

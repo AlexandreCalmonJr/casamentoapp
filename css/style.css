@@ -128,3 +128,38 @@ body {
 .carousel-dot.active {
     background-color: white;
 }
+
+/* Adicione ao final do arquivo css/style.css */
+
+/* Background da Home */
+.home-background-container {
+    position: relative;
+    min-height: 100vh;
+}
+
+.home-background-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+}
+
+.home-content-overlay {
+    position: relative;
+    z-index: 10;
+}
+
+/* Animação suave para texto sobre background */
+.backdrop-blur-sm {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+/* Estilo para conteúdo do "Sobre Nós" */
+.prose {
+    font-size: 1.05rem;
+    line-height: 1.75;
+}
+
+.prose p {
+    margin-bottom: 1em;
+}

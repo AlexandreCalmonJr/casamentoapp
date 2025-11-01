@@ -326,8 +326,8 @@ export function renderDetailsEditor(details) {
                             ${details.shareImage ? `
                                 <div class="relative inline-block">
                                     <img src="${getOptimizedCloudinaryUrl(details.shareImage)}"
-                                         class="rounded-lg max-w-sm shadow-lg border-4 border-green-100"
-                                         alt="Imagem de compartilhamento">
+                                        class="rounded-lg max-w-sm shadow-lg border-4 border-green-100"
+                                        alt="Imagem de compartilhamento">
                                     <div class="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center">
                                         <i class="fas fa-check-circle mr-1"></i>Ativa
                                     </div>
@@ -363,6 +363,138 @@ export function renderDetailsEditor(details) {
                 <textarea id="form-whatsapp-template" class="w-full mt-1 p-2 border rounded" rows="5">${whatsappTemplate}</textarea>
                 <p class="text-xs text-gray-500 mt-1">Use {nome_convidado}, {nomes_casal} e {link_convite} para personalização.</p>
             </div>
+            
+            <div class="border-t pt-6">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">
+        <i class="fas fa-image text-indigo-600 mr-2"></i>
+        Background da Página Inicial
+    </h3>
+    
+    <div class="space-y-4">
+        <div class="flex items-center">
+            <input type="checkbox" id="home-bg-enabled" 
+                ${details.homeBackground?.enabled ? 'checked' : ''}
+                class="w-4 h-4 text-primary">
+            <label for="home-bg-enabled" class="ml-2 text-sm font-medium">
+                Ativar imagem de fundo
+            </label>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium mb-2">Orientação da Imagem</label>
+            <select id="home-bg-orientation" class="w-full p-2 border rounded">
+                <option value="horizontal" ${details.homeBackground?.orientation === 'horizontal' ? 'selected' : ''}>
+                    Horizontal (Paisagem)
+                </option>
+                <option value="vertical" ${details.homeBackground?.orientation === 'vertical' ? 'selected' : ''}>
+                    Vertical (Retrato)
+                </option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium mb-2">
+                Escurecer Fundo (0 = transparente, 1 = muito escuro)
+            </label>
+            <input type="range" id="home-bg-opacity" min="0" max="1" step="0.1"
+                value="${details.homeBackground?.opacity || 0.3}"
+                class="w-full">
+            <span id="opacity-value" class="text-sm text-gray-600">
+                ${(details.homeBackground?.opacity || 0.3) * 100}%
+            </span>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium mb-2">Upload da Imagem de Fundo</label>
+            <input type="file" id="home-bg-input" class="hidden" accept="image/*">
+            <input type="hidden" id="form-home-bg-url" value="${details.homeBackground?.imageUrl || ''}">
+            
+            <button type="button" 
+                    onclick="document.getElementById('home-bg-input').click()"
+                    class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <i class="fas fa-upload mr-2"></i>Escolher Imagem
+            </button>
+            
+            <div id="home-bg-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden">
+                <div id="home-bg-progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            
+            <div id="home-bg-preview" class="mt-2">
+                ${details.homeBackground?.imageUrl ? 
+                    `<img src="${details.homeBackground.imageUrl}" class="rounded-lg max-w-xs shadow-md">` 
+                    : ''}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="border-t pt-6">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">
+        <i class="fas fa-heart text-red-600 mr-2"></i>
+        Seção "Sobre Nós"
+    </h3>
+    
+    <div class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium mb-2">Modo de Exibição</label>
+            <select id="about-mode" class="w-full p-2 border rounded">
+                <option value="timeline" ${details.aboutUs?.mode === 'timeline' ? 'selected' : ''}>
+                    Timeline de Eventos
+                </option>
+                <option value="text" ${details.aboutUs?.mode === 'text' ? 'selected' : ''}>
+                    Texto Livre + Foto
+                </option>
+            </select>
+        </div>
+        
+        <div id="about-text-config" class="${details.aboutUs?.mode === 'text' ? '' : 'hidden'}">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium">Título</label>
+                    <input type="text" id="about-text-title" 
+                        value="${details.aboutUs?.text?.title || 'Nossa História'}"
+                        class="w-full mt-1 p-2 border rounded">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium">Conteúdo</label>
+                    <textarea id="about-text-content" rows="10"
+                            class="w-full mt-1 p-2 border rounded"
+                            placeholder="Conte aqui a história do casal...">${details.aboutUs?.text?.content || ''}</textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Imagem Principal</label>
+                    <input type="file" id="about-text-image-input" class="hidden" accept="image/*">
+                    <input type="hidden" id="form-about-text-image-url" 
+                        value="${details.aboutUs?.text?.imageUrl || ''}">
+                    
+                    <button type="button" 
+                            onclick="document.getElementById('about-text-image-input').click()"
+                            class="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        <i class="fas fa-camera mr-2"></i>Escolher Foto
+                    </button>
+                    
+                    <div id="about-text-image-progress-container" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden">
+                        <div id="about-text-image-progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    
+                    <div id="about-text-image-preview" class="mt-2">
+                        ${details.aboutUs?.text?.imageUrl ? 
+                            `<img src="${details.aboutUs.text.imageUrl}" class="rounded-lg max-w-xs shadow-md">` 
+                            : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <p class="text-sm text-gray-500 mt-2">
+            <i class="fas fa-info-circle mr-1"></i>
+            Timeline usa os eventos já cadastrados na aba "Timeline". 
+            Texto Livre permite escrever livremente sobre o casal.
+        </p>
+    </div>
+</div>
 
             <button id="save-all-details-button" class="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700">Salvar Todas as Alterações</button>
             <p id="details-success" class="text-green-600 text-sm text-center hidden">Detalhes salvos com sucesso!</p>

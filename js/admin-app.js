@@ -61,11 +61,11 @@ function copyTextToClipboard(text) {
 async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
     const siteBaseUrl = window.location.origin;
     const fullLink = `${siteBaseUrl}/index.html?key=${key}`;
-    
+
     document.getElementById('modal-guest-name').textContent = guestName;
     document.getElementById('modal-allowed-guests').textContent = allowedGuests;
     document.getElementById('invite-link').value = fullLink;
-    
+
     // QR Code
     const qrCodeContainer = document.getElementById('qrcode');
     qrCodeContainer.innerHTML = '';
@@ -74,7 +74,7 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
         colorDark: "#000000", colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.H
     });
-    
+
     setTimeout(() => {
         const canvas = qrCodeContainer.querySelector('canvas');
         if (canvas) document.getElementById('download-qr-button').href = canvas.toDataURL();
@@ -99,14 +99,14 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
                 const response = await fetch(state.weddingDetails.shareImage);
                 const blob = await response.blob();
                 const imageFile = new File([blob], 'convite.jpg', { type: blob.type });
-                
+
                 // *** LÓGICA DE PARTILHA MÓVEL CORRIGIDA ***
                 // Agora partilhamos APENAS o ficheiro e copiamos o texto.
                 const shareData = {
                     files: [imageFile],
                     title: `Convite - ${state.weddingDetails.coupleNames}`,
                 };
-                
+
                 if (navigator.canShare(shareData)) {
                     shareActionsContainer.innerHTML = `
                         <button id="native-share-button" class="w-full py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center justify-center">
@@ -163,10 +163,13 @@ function handleGoogleLogin() {
     });
 }
 
+// Cole esta função no seu admin-app.js substituindo a função handleSaveDetails existente
+
 async function handleSaveDetails(event) {
     const button = event.currentTarget;
     UI.setButtonLoading(button, true);
 
+    // Paletas de cores
     const dressCodePalettes = {};
     document.querySelectorAll('.palette-group').forEach(groupEl => {
         const groupName = groupEl.dataset.group;
@@ -177,8 +180,22 @@ async function handleSaveDetails(event) {
         dressCodePalettes[groupName] = colors;
     });
 
+    // Fotos do carrossel
     const carouselPhotos = Array.from(document.querySelectorAll('#carousel-photos-preview img')).map(img => img.src);
 
+    // ============ NOVO: Background da Home ============
+    const homeBackgroundEnabled = document.getElementById('home-bg-enabled')?.checked || false;
+    const homeBackgroundUrl = document.getElementById('form-home-bg-url')?.value.trim() || '';
+    const homeBackgroundOrientation = document.getElementById('home-bg-orientation')?.value || 'horizontal';
+    const homeBackgroundOpacity = parseFloat(document.getElementById('home-bg-opacity')?.value || 0.3);
+
+    // ============ NOVO: Seção Sobre Nós ============
+    const aboutMode = document.getElementById('about-mode')?.value || 'timeline';
+    const aboutTextTitle = document.getElementById('about-text-title')?.value.trim() || 'Nossa História';
+    const aboutTextContent = document.getElementById('about-text-content')?.value.trim() || '';
+    const aboutTextImageUrl = document.getElementById('form-about-text-image-url')?.value.trim() || '';
+
+    // Objeto com todos os dados atualizados
     const updatedDetails = {
         coupleNames: document.getElementById('form-couple-names').value,
         weddingDate: new Date(document.getElementById('form-wedding-date').value),
@@ -195,15 +212,41 @@ async function handleSaveDetails(event) {
         carouselPhotos: carouselPhotos,
         venuePhoto: document.getElementById('form-venue-photo-url').value.trim(),
         shareImage: document.getElementById('form-share-image-url').value.trim() || null,
+        
+        // ============ NOVO: Adicionando novos campos ============
+        homeBackground: {
+            enabled: homeBackgroundEnabled,
+            imageUrl: homeBackgroundUrl,
+            orientation: homeBackgroundOrientation,
+            opacity: homeBackgroundOpacity
+        },
+        aboutUs: {
+            mode: aboutMode,
+            text: {
+                title: aboutTextTitle,
+                content: aboutTextContent,
+                imageUrl: aboutTextImageUrl
+            }
+        }
     };
 
-    await db.collection('siteConfig').doc('details').update(updatedDetails);
-    state.weddingDetails = { ...state.weddingDetails, ...updatedDetails };
-    
-    UI.setButtonLoading(button, false);
-    const successMsg = document.getElementById('details-success');
-    successMsg.classList.remove('hidden');
-    setTimeout(() => successMsg.classList.add('hidden'), 3000);
+    try {
+        await db.collection('siteConfig').doc('details').update(updatedDetails);
+        state.weddingDetails = { ...state.weddingDetails, ...updatedDetails };
+        
+        UI.setButtonLoading(button, false);
+        const successMsg = document.getElementById('details-success');
+        successMsg.classList.remove('hidden');
+        setTimeout(() => successMsg.classList.add('hidden'), 3000);
+        
+        // Mensagem adicional de sucesso
+        UI.showToast('Configurações salvas com sucesso!', 'success');
+        
+    } catch (error) {
+        console.error('Erro ao salvar detalhes:', error);
+        UI.setButtonLoading(button, false);
+        UI.showToast('Erro ao salvar configurações. Tente novamente.', 'error');
+    }
 }
 
 async function handleGenerateKey() {
@@ -217,7 +260,7 @@ async function handleGenerateKey() {
         alert("Por favor, preencha o nome e o número de pessoas.");
         return;
     }
-    
+
     UI.setButtonLoading(generateBtn, true);
     const newKey = 'AS' + Math.random().toString(36).substring(2, 10).toUpperCase();
     await db.collection('accessKeys').doc(newKey).set({
@@ -230,7 +273,7 @@ async function handleGenerateKey() {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         willAttendRestaurant: null
     });
-    
+
     showShareModalWithImage(guestName, newKey, allowedGuests, guestPhone);
     document.getElementById('guest-name').value = '';
     document.getElementById('guest-phone').value = '';
@@ -281,9 +324,9 @@ async function handleAddTimelineEvent(event) {
     const title = document.getElementById('timeline-title').value;
     const description = document.getElementById('timeline-description').value;
     const imageUrl = document.getElementById('timeline-image-url').value;
-    
+
     await db.collection('timeline').add({ date, title, description, imageUrl, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    
+
     UI.setButtonLoading(button, false);
     form.reset();
 }
@@ -292,7 +335,7 @@ async function handleEditTimelineEvent(event) {
     const eventId = event.currentTarget.dataset.id;
     const eventDoc = await db.collection('timeline').doc(eventId).get();
     if (!eventDoc.exists) return;
-    
+
     UI.showEditTimelineEventModal(eventDoc.data(), async (updatedData) => {
         await db.collection('timeline').doc(eventId).update(updatedData);
         UI.closeEditModal();
@@ -369,8 +412,11 @@ function handleShareKey(event) {
 }
 
 function cleanupListeners() {
-    Object.values(state.unsubscribe).forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+    Object.values(state.unsubscribe).forEach(unsub => { 
+        if (typeof unsub === 'function') unsub(); 
+    });
     state.unsubscribe = {};
+    
     if (state.reportChart) {
         state.reportChart.destroy();
         state.reportChart = null;
@@ -388,7 +434,7 @@ function setupPaletteEditorListeners() {
             const colorInput = addBtn.previousElementSibling;
             const newColor = colorInput.value;
             const colorsContainer = editor.querySelector(`.palette-group[data-group="${group}"] .palette-colors`);
-            
+
             const newColorHTML = `
                 <div class="relative group w-12 h-12 rounded-full border-2 border-white shadow-md" style="background-color: ${newColor};">
                     <button type="button" class="delete-color-btn absolute inset-0 bg-red-500 bg-opacity-80 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-color="${newColor}" data-group="${group}">
@@ -434,6 +480,62 @@ function setupDetailsPhotoListeners() {
             }
         });
     }
+
+    // ============ NOVO: Listener para upload do Background da Home ============
+    const homeBgInput = document.getElementById('home-bg-input');
+    if (homeBgInput) {
+        homeBgInput.addEventListener('change', async () => {
+            await handleImageUpload(
+                'home-bg-input',
+                'form-home-bg-url',
+                'home-bg-progress-bar',
+                'home-bg-preview'
+            );
+        });
+    }
+
+    // ============ NOVO: Listener para upload da imagem "Sobre Nós" ============
+    const aboutTextImageInput = document.getElementById('about-text-image-input');
+    if (aboutTextImageInput) {
+        aboutTextImageInput.addEventListener('change', async () => {
+            await handleImageUpload(
+                'about-text-image-input',
+                'form-about-text-image-url',
+                'about-text-image-progress-bar',
+                'about-text-image-preview'
+            );
+        });
+    }
+
+    // ============ NOVO: Listener para alternar modo "Sobre Nós" ============
+    const aboutModeSelect = document.getElementById('about-mode');
+    if (aboutModeSelect) {
+        aboutModeSelect.addEventListener('change', (e) => {
+            const textConfig = document.getElementById('about-text-config');
+            const timelineInfo = document.getElementById('timeline-info');
+            if (textConfig) {
+                if (e.target.value === 'text') {
+                    textConfig.classList.remove('hidden');
+                    if (timelineInfo) timelineInfo.classList.add('hidden');
+                } else {
+                    textConfig.classList.add('hidden');
+                    if (timelineInfo) timelineInfo.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    // ============ NOVO: Listener para slider de opacidade ============
+    const opacitySlider = document.getElementById('home-bg-opacity');
+    if (opacitySlider) {
+        opacitySlider.addEventListener('input', (e) => {
+            const opacityValue = document.getElementById('opacity-value');
+            if (opacityValue) {
+                const percentage = Math.round(e.target.value * 100);
+                opacityValue.textContent = `${percentage}%`;
+            }
+        });
+    }
 }
 
 async function handleImageUpload(inputId, urlHiddenId, progressBarId, previewId) {
@@ -464,9 +566,9 @@ async function handleImageUpload(inputId, urlHiddenId, progressBarId, previewId)
 async function setupShareImageListeners() {
     const fileInput = document.getElementById('share-image-input');
     const removeBtn = document.getElementById('remove-share-image-btn');
-    
+
     if (!fileInput) return;
-    
+
     fileInput.addEventListener('change', async () => {
         await handleImageUpload(
             'share-image-input',
@@ -474,10 +576,10 @@ async function setupShareImageListeners() {
             'share-image-progress-bar',
             'share-image-preview'
         );
-        
+
         const previewContainer = document.getElementById('share-image-preview');
         const imageUrl = document.getElementById('form-share-image-url').value;
-        
+
         if (imageUrl) {
             previewContainer.innerHTML = `
                 <div class="relative inline-block">
@@ -495,7 +597,7 @@ async function setupShareImageListeners() {
                     </p>
                 </div>
             `;
-            
+
             const uploadButton = document.querySelector('[onclick="document.getElementById(\'share-image-input\').click()"]');
             if (uploadButton && !document.getElementById('remove-share-image-btn')) {
                 const removeButton = document.createElement('button');
@@ -506,13 +608,13 @@ async function setupShareImageListeners() {
                 uploadButton.parentElement.insertBefore(removeButton, uploadButton.nextSibling);
                 removeButton.addEventListener('click', handleRemoveShareImage);
             }
-            
+
             if (uploadButton) {
                 uploadButton.innerHTML = '<i class="fas fa-upload mr-2"></i>Trocar Imagem';
             }
         }
     });
-    
+
     if (removeBtn) {
         removeBtn.addEventListener('click', handleRemoveShareImage);
     }
@@ -525,11 +627,11 @@ async function handleRemoveShareImage() {
         confirmText: 'Remover',
         isDestructive: true
     });
-    
+
     if (!confirmed) return;
-    
+
     document.getElementById('form-share-image-url').value = '';
-    
+
     const previewContainer = document.getElementById('share-image-preview');
     previewContainer.innerHTML = `
         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
@@ -540,15 +642,15 @@ async function handleRemoveShareImage() {
             </p>
         </div>
     `;
-    
+
     const removeBtn = document.getElementById('remove-share-image-btn');
     if (removeBtn) removeBtn.remove();
-    
+
     const uploadButton = document.querySelector('[onclick="document.getElementById(\'share-image-input\').click()"]');
     if (uploadButton) {
         uploadButton.innerHTML = '<i class="fas fa-upload mr-2"></i>Escolher Imagem';
     }
-    
+
     UI.showToast('Imagem removida. Salve as alterações para confirmar.', 'info');
 }
 
@@ -564,9 +666,11 @@ async function loadTab(tabName) {
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
         setupDetailsPhotoListeners();
-        
-        document.getElementById('venue-photo-input').addEventListener('change', () => handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview'));
-        
+
+        document.getElementById('venue-photo-input').addEventListener('change', () => 
+            handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview')
+        );
+
         setupShareImageListeners();
 
         const pdfGenerator = new PDFGenerator();
@@ -584,7 +688,7 @@ async function loadTab(tabName) {
     } else if (tabName === 'keys') {
         DOMElements.tabContent.innerHTML = UI.renderKeyManager();
         document.getElementById('generate-key-button').addEventListener('click', handleGenerateKey);
-        
+
         const searchInput = document.getElementById('search-keys-input');
         const renderKeys = (docs) => {
             const searchTerm = searchInput.value.toLowerCase();
@@ -596,7 +700,7 @@ async function loadTab(tabName) {
         };
         state.unsubscribe.keys = db.collection('accessKeys').orderBy('createdAt', 'desc').onSnapshot(snap => renderKeys(snap.docs));
         searchInput.addEventListener('input', () => db.collection('accessKeys').orderBy('createdAt', 'desc').get().then(snap => renderKeys(snap.docs)));
-    
+
     } else if (tabName === 'timeline') {
         DOMElements.tabContent.innerHTML = UI.renderTimelineManager();
         document.getElementById('add-timeline-event-form').addEventListener('submit', handleAddTimelineEvent);
@@ -620,12 +724,14 @@ async function loadTab(tabName) {
         document.getElementById('export-csv-button').addEventListener('click', handleExportCSV);
         state.unsubscribe.report = db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc').onSnapshot(snap => renderReport(snap.docs));
         searchInput.addEventListener('input', () => db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc').get().then(snap => renderReport(snap.docs)));
+        
     } else if (tabName === 'guestbook') {
         DOMElements.tabContent.innerHTML = UI.renderGuestbookAdmin();
         state.unsubscribe.guestbook = db.collection('guestbook').orderBy('createdAt', 'desc').onSnapshot(snap => {
             UI.updateGuestbookAdminList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             document.querySelectorAll('.delete-message-btn').forEach(btn => btn.addEventListener('click', handleDeleteMessage));
         });
+        
     } else if (tabName === 'gifts') {
         DOMElements.tabContent.innerHTML = UI.renderGiftsManager();
         document.getElementById('add-gift-form').addEventListener('submit', handleAddGift);
@@ -634,6 +740,7 @@ async function loadTab(tabName) {
             document.querySelectorAll('.edit-gift-btn').forEach(btn => btn.addEventListener('click', handleEditGift));
             document.querySelectorAll('.delete-gift-btn').forEach(btn => btn.addEventListener('click', handleDeleteGift));
         });
+        
     } else if (tabName === 'admin-gallery') {
         DOMElements.tabContent.innerHTML = UI.renderAdminGallery();
         state.unsubscribe.adminGallery = db.collection('guestPhotos').orderBy('createdAt', 'desc').onSnapshot(snap => {

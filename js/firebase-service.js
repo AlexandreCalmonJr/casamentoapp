@@ -264,8 +264,6 @@ export function listenToGiftList(onGiftsUpdate) {
     );
 }
 
-// ========= MODIFICADO =========
-// Adiciona um contribuidor a um presente
 export function addContributorToGift(giftId, user) {
     const contributor = {
         userId: user.uid,
@@ -276,7 +274,6 @@ export function addContributorToGift(giftId, user) {
     });
 }
 
-// Remove um contribuidor de um presente
 export function removeContributorFromGift(giftId, user) {
     const contributor = {
         userId: user.uid,
@@ -286,4 +283,11 @@ export function removeContributorFromGift(giftId, user) {
         contributors: firebase.firestore.FieldValue.arrayRemove(contributor)
     });
 }
-// ========= FIM DA MODIFICAÇÃO =========
+
+// --- NOVO: Funções para Timeline do Casal ---
+export function listenToTimeline(onTimelineUpdate) {
+    return db.collection('timeline').orderBy('date', 'asc').onSnapshot(
+        snapshot => onTimelineUpdate(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
+        error => { console.error("Error listening to timeline:", error); onTimelineUpdate([]); }
+    );
+}
