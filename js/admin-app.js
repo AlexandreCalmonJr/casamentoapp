@@ -1,5 +1,6 @@
 // js/admin-app.js
 
+import { adminNotificationManager } from './admin-notifications.js';
 import * as UI from './admin-ui.js';
 import { adminEmails } from './config.js';
 import { auth, db, uploadFileToCloudinary } from './firebase-service.js';
@@ -30,13 +31,11 @@ function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// *** NOVO ***: Função auxiliar para copiar texto para a área de transferência
 function copyTextToClipboard(text) {
     if (!navigator.clipboard) {
-        // Fallback para navegadores mais antigos
         const textArea = document.createElement("textarea");
         textArea.value = text;
-        textArea.style.position = "fixed"; // Evita que a página "salte"
+        textArea.style.position = "fixed";
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
@@ -66,7 +65,6 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
     document.getElementById('modal-allowed-guests').textContent = allowedGuests;
     document.getElementById('invite-link').value = fullLink;
 
-    // QR Code
     const qrCodeContainer = document.getElementById('qrcode');
     qrCodeContainer.innerHTML = '';
     new QRCode(qrCodeContainer, {
@@ -100,8 +98,6 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
                 const blob = await response.blob();
                 const imageFile = new File([blob], 'convite.jpg', { type: blob.type });
 
-                // *** LÓGICA DE PARTILHA MÓVEL CORRIGIDA ***
-                // Agora partilhamos APENAS o ficheiro e copiamos o texto.
                 const shareData = {
                     files: [imageFile],
                     title: `Convite - ${state.weddingDetails.coupleNames}`,
@@ -115,9 +111,7 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
                     `;
                     document.getElementById('native-share-button').onclick = async () => {
                         try {
-                            // Copia o texto primeiro
                             copyTextToClipboard(message);
-                            // Depois abre a partilha da imagem
                             await navigator.share(shareData);
                         } catch (error) {
                             if (error.name !== 'AbortError') {
@@ -133,7 +127,6 @@ async function showShareModalWithImage(guestName, key, allowedGuests, phone) {
             }
         }
 
-        // Fallback para Computador ou se a partilha nativa falhar
         if (!nativeShareReady) {
             const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
             let fallbackHtml = `
@@ -183,17 +176,25 @@ async function handleSaveDetails(event) {
     // Fotos do carrossel
     const carouselPhotos = Array.from(document.querySelectorAll('#carousel-photos-preview img')).map(img => img.src);
 
+    // ============ NOVO: Cards da Home ============
+    const homeCardsTitle = document.getElementById('home-cards-title')?.value.trim() || '';
+    const homeCardsSubtitle = document.getElementById('home-cards-subtitle')?.value.trim() || '';
+    const homeCardsVerticalPosition = document.getElementById('home-cards-vertical')?.value || 'end';
+    const homeCardsOpacity = parseFloat(document.getElementById('home-cards-opacity')?.value || 0.95);
+
     // ============ NOVO: Background da Home ============
     const homeBackgroundEnabled = document.getElementById('home-bg-enabled')?.checked || false;
     const homeBackgroundUrl = document.getElementById('form-home-bg-url')?.value.trim() || '';
     const homeBackgroundOrientation = document.getElementById('home-bg-orientation')?.value || 'horizontal';
     const homeBackgroundOpacity = parseFloat(document.getElementById('home-bg-opacity')?.value || 0.3);
+    const homeBackgroundPosition = document.getElementById('home-bg-position')?.value || 'center';
 
     // ============ NOVO: Seção Sobre Nós ============
     const aboutMode = document.getElementById('about-mode')?.value || 'timeline';
     const aboutTextTitle = document.getElementById('about-text-title')?.value.trim() || 'Nossa História';
-    const aboutTextContent = document.getElementById('about-text-content')?.value.trim() || '';
+    const aboutTextContent = document.getElementById('about-text-content')?.value || '';
     const aboutTextImageUrl = document.getElementById('form-about-text-image-url')?.value.trim() || '';
+    const aboutTextAlignment = document.getElementById('about-text-align')?.value || 'justify';
 
     // Objeto com todos os dados atualizados
     const updatedDetails = {
@@ -661,7 +662,73 @@ async function loadTab(tabName) {
     if (window.innerWidth < 1024) DOMElements.sidebar.classList.add('-translate-x-full');
     cleanupListeners();
 
+    // ========= NOVO: Tab de Notificações =========
+    if (tabName === 'notifications') {
+        DOMElements.tabContent.innerHTML = adminNotificationManager.renderNotificationControl();
+        
+        // Carrega configurações
+        await adminNotificationManager.loadNotificationSettings();
+        
+        // Atualiza estatísticas
+        await adminNotificationManager.updateStats();
+        
+        // Carrega histórico
+        await adminNotificationManager.loadNotificationHistory();
+
+        // Event Listeners
+        document.getElementById('save-notification-settings').addEventListener('click', async () => {
+            await adminNotificationManager.saveNotificationSettings();
+        });
+
+        document.getElementById('manual-notification-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = e.target.querySelector('button[type="submit"]');
+            UI.setButtonLoading(button, true);
+
+            const recipients = document.getElementById('notification-recipients').value;
+            const title = document.getElementById('notification-title').value.trim();
+            const message = document.getElementById('notification-message').value.trim();
+            const icon = document.getElementById('notification-icon').value;
+            const urgent = document.getElementById('notification-urgent').checked;
+
+            if (!title || !message) {
+                UI.showToast('Preencha o título e a mensagem!', 'error');
+                UI.setButtonLoading(button, false);
+                return;
+            }
+
+            await adminNotificationManager.sendManualNotification(recipients, title, message, icon, urgent);
+            UI.setButtonLoading(button, false);
+        });
+
+        document.getElementById('preview-notification-btn').addEventListener('click', () => {
+            const title = document.getElementById('notification-title').value.trim();
+            const message = document.getElementById('notification-message').value.trim();
+            const icon = document.getElementById('notification-icon').value;
+
+            if (!title || !message) {
+                UI.showToast('Preencha o título e a mensagem primeiro!', 'error');
+                return;
+            }
+
+            adminNotificationManager.showNotificationPreview(title, message, icon);
+        });
+
+        // Templates rápidos
+        document.querySelectorAll('.notification-template').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const button = e.currentTarget;
+                document.getElementById('notification-title').value = button.dataset.title;
+                document.getElementById('notification-message').value = button.dataset.message;
+                document.getElementById('notification-recipients').value = button.dataset.recipients;
+                
+                // Scroll para o formulário
+                document.getElementById('manual-notification-form').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
     if (tabName === 'details') {
+
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
         document.getElementById('save-all-details-button').addEventListener('click', handleSaveDetails);
         setupPaletteEditorListeners();
@@ -749,6 +816,8 @@ async function loadTab(tabName) {
         });
     }
 }
+}
+
 
 function setupEventListeners() {
     DOMElements.googleLoginBtn.addEventListener('click', handleGoogleLogin);
@@ -769,8 +838,10 @@ function setupEventListeners() {
 }
 
 async function initializeApp() {
+    // Adiciona item de notificações no menu
     DOMElements.sidebarNav.innerHTML = UI.renderSidebarNav();
     setupEventListeners();
+    
     auth.onAuthStateChanged(async (user) => {
         const isAuthorized = user && adminEmails.includes(user.email);
         if (isAuthorized) {
@@ -787,7 +858,7 @@ async function initializeApp() {
             DOMElements.loginScreen.classList.add('hidden');
             DOMElements.adminEmailEl.textContent = user.email;
             loadTab(state.currentTab);
-        } else {
+        } else { // If not authorized
             DOMElements.loginScreen.classList.remove('hidden');
             DOMElements.adminDashboard.classList.add('hidden');
             if (user) auth.signOut();

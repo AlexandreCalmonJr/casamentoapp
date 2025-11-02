@@ -63,16 +63,15 @@ function renderCarousel(photos) {
         </div>
     `;
 }
-
-
 function renderAboutSection(weddingDetails) {
     const aboutConfig = weddingDetails.aboutUs || { mode: 'timeline' };
 
     if (aboutConfig.mode === 'text') {
         const textData = aboutConfig.text || {};
+        const alignment = textData.alignment || 'justify';
         const imageHTML = textData.imageUrl
             ? `<img src="${getOptimizedCloudinaryUrl(textData.imageUrl, 'w_800,c_fill,q_auto')}" 
-                    class="w-full h-64 md:h-96 object-cover rounded-xl shadow-lg mb-6" 
+                    class="w-full rounded-xl shadow-lg mb-6" 
                     alt="${textData.title}">`
             : '';
 
@@ -85,14 +84,13 @@ function renderAboutSection(weddingDetails) {
                 </div>
                 ${imageHTML}
                 <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6 md:p-8">
-                    <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                    <div class="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap text-${alignment}">
                         ${textData.content || 'Conte aqui a história do casal...'}
                     </div>
                 </div>
             </div>
         `;
     } else {
-        // Mode: timeline - Usar a função existente renderTimeline
         return `
             <div class="space-y-6">
                 <div class="text-center">
@@ -104,7 +102,6 @@ function renderAboutSection(weddingDetails) {
         `;
     }
 }
-
 export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) {
     if (!weddingDetails) return `<div class="text-center p-8"><div class="animate-pulse"><div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div><div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div></div></div>`;
 
@@ -115,8 +112,8 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
 
     switch (viewName) {
         case 'home':
+            // ATUALIZADO: Removida a contagem regressiva
             const bgConfig = weddingDetails.homeBackground || { enabled: false };
-            let bgStyle = '';
             let bgHTML = '';
 
             if (bgConfig.enabled && bgConfig.imageUrl) {
@@ -142,14 +139,31 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
                 <h1 class="text-5xl font-cursive text-primary dark:text-dark-primary mb-4">
                     ${weddingDetails.coupleNames}
                 </h1>
-                <p class="text-gray-600 dark:text-gray-400">
+                <p class="text-xl text-gray-600 dark:text-gray-400 mb-6">
                     Temos a honra de convidar para a celebração do nosso amor!
                 </p>
+                <div class="flex justify-center items-center space-x-4 text-gray-700 dark:text-gray-300">
+                    <i class="fas fa-calendar-alt text-2xl text-primary dark:text-dark-primary"></i>
+                    <span class="text-lg font-medium">${formatDate(weddingDetails.weddingDate)}</span>
+                </div>
             </div>
+            
+            ${user ? '' : `
             <div class="bg-light-card/95 dark:bg-dark-card/95 backdrop-blur-sm rounded-xl shadow-md p-6">
-                <h2 class="text-xl font-medium mb-4">Contagem Regressiva</h2>
-                <div id="countdown" class="flex justify-center space-x-2 md:space-x-4"></div>
+                <h3 class="text-xl font-semibold mb-3">
+                    <i class="fas fa-envelope-open-text text-primary dark:text-dark-primary mr-2"></i>
+                    Recebeu seu convite?
+                </h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    Acesse a aba "Acesso" para se cadastrar com sua chave de acesso e ver todos os detalhes exclusivos!
+                </p>
+                <button onclick="document.querySelector('[data-view=rsvp]').click()" 
+                        class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg transition-all">
+                    Acessar Meu Convite
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
             </div>
+            `}
         </div>
     `;
         case 'about':
@@ -181,28 +195,142 @@ export function generateViewHTML(viewName, user, weddingDetails, accessKeyInfo) 
         case 'gifts':
             return `<div class="space-y-6"><div class="text-center"><h1 class="text-3xl font-cursive mb-2">Lista de Presentes</h1></div>${user ? `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><p class="text-center text-gray-600 dark:text-gray-400 mb-6">Sua presença é o nosso maior presente! Mas se desejar nos presentear, preparamos com carinho esta lista de sugestões.</p><div id="gift-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>` : `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 text-center"><i class="fas fa-lock text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Lista Exclusiva</h2><p class="text-gray-600 dark:text-gray-400">Para ver nossa lista de presentes, por favor, faça o login na aba "Acesso".</p></div>`}</div>`;
 
-        case 'rsvp':
-            if (user && accessKeyInfo) {
-                const { guestName, allowedGuests, willAttendRestaurant, role } = accessKeyInfo.data;
-                const dressCodeButtonHTML = specialRoles.includes(role)
-                    ? `<button id="dress-code-button" class="bg-accent text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all col-span-1 md:col-span-2"><i class="fas fa-palette mr-2"></i>Manual de Vestimentas</button>`
-                    : '';
-
-                return `
-                    <div class="space-y-8">
-                        <div class="text-center"><h1 class="text-4xl font-cursive text-primary dark:text-dark-primary">Bem-vindo(a), ${guestName}!</h1><p class="text-gray-600 dark:text-gray-400 mt-2">Seu portal exclusivo para o nosso grande dia.</p></div>
-                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-semibold mb-4 border-b pb-2">Sua Confirmação (RSVP)</h2><div class="flex items-center justify-between text-lg"><span><i class="fas fa-users fa-fw mr-2 text-gray-500"></i>Convidados:</span><span class="font-bold text-primary dark:text-dark-primary">${allowedGuests}</span></div><div class="flex items-center justify-between text-lg mt-2"><span><i class="fas fa-utensils fa-fw mr-2 text-gray-500"></i>Presença no Restaurante:</span><span class="font-bold ${willAttendRestaurant ? 'text-green-500' : 'text-red-500'}">${willAttendRestaurant ? 'Confirmada' : 'Não Confirmada'}</span></div></div>
-                        <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6"><h2 class="text-xl font-semibold mb-4 border-b pb-2">Agenda do Dia</h2><ol class="relative border-l border-gray-200 dark:border-gray-700 ml-4"><li class="mb-10 ml-6"><span class="absolute flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-blue-900"><i class="fas fa-church text-blue-800 dark:text-blue-300"></i></span><h3 class="flex items-center mb-1 text-lg font-semibold text-gray-900 dark:text-white">Cerimônia</h3><time class="block mb-2 text-sm font-normal leading-none text-gray-400 dark:text-gray-500">${formatTime(weddingDetails.weddingDate)}h</time><p class="text-base font-normal text-gray-500 dark:text-gray-400">${weddingDetails.venue}</p></li><li class="ml-6"><span class="absolute flex items-center justify-center w-8 h-8 bg-green-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-green-900"><i class="fas fa-glass-cheers text-green-800 dark:text-green-300"></i></span><h3 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">Recepção</h3><p class="text-base font-normal text-gray-500 dark:text-gray-400">${weddingDetails.restaurantName}</p></li></ol></div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <button id="manage-rsvp-button" class="bg-primary text-white font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all"><i class="fas fa-edit mr-2"></i>Gerenciar Confirmação</button>
-                            <button data-view-target="gifts" class="quick-nav-button bg-secondary text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all"><i class="fas fa-gift mr-2"></i>Ver Lista de Presentes</button>
-                            <button data-view-target="guestbook" class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><i class="fas fa-book-open mr-2"></i>Mural de Recados</button>
-                            <button data-view-target="guest-photos" class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"><i class="fas fa-camera-retro mr-2"></i>Galeria de Fotos</button>
-                            ${dressCodeButtonHTML}
+            case 'rsvp':
+                if (user && accessKeyInfo) {
+                    const { guestName, allowedGuests, willAttendRestaurant, role } = accessKeyInfo.data;
+                    const dressCodeButtonHTML = specialRoles.includes(role)
+                        ? `<button id="dress-code-button" class="bg-accent text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all col-span-1 md:col-span-2"><i class="fas fa-palette mr-2"></i>Manual de Vestimentas</button>`
+                        : '';
+    
+                    // NOVO: Verifica se notificações estão habilitadas
+                    const notificationsEnabled = Notification.permission === 'granted';
+                    const notificationsHTML = !notificationsEnabled ? `
+                        <div class="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl shadow-md p-6">
+                            <div class="flex items-start">
+                                <i class="fas fa-bell text-3xl text-yellow-500 mr-4 flex-shrink-0"></i>
+                                <div class="flex-1">
+                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                                        Ative as Notificações
+                                    </h3>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                        Receba lembretes sobre o casamento! Enviaremos uma notificação 24 horas antes do evento para você não esquecer.
+                                    </p>
+                                    <button id="enable-notifications-btn" 
+                                            class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center">
+                                        <i class="fas fa-bell-slash mr-2"></i>
+                                        Ativar Notificações
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>`;
-            }
-            return `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 max-w-lg mx-auto text-center"><i class="fas fa-key text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Área Exclusiva</h2><p class="text-gray-600 dark:text-gray-400 mb-6">Use sua chave de acesso para se cadastrar ou faça login para participar.</p><div class="space-y-3"><button id="open-signup-button" class="w-full py-3 px-4 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-lg">Cadastrar com Chave de Acesso</button><button id="open-login-button" class="w-full py-2 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg">Já tenho conta (Login)</button></div></div>`;
+                    ` : `
+                        <div id="notifications-enabled-msg" class="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl shadow-md p-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-2xl text-green-500 mr-3"></i>
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Notificações ativadas! Você receberá lembretes importantes.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+    
+                    return `
+                        <div class="space-y-8">
+                            <div class="text-center">
+                                <h1 class="text-4xl font-cursive text-primary dark:text-dark-primary">
+                                    Bem-vindo(a), ${guestName}!
+                                </h1>
+                                <p class="text-gray-600 dark:text-gray-400 mt-2">
+                                    Seu portal exclusivo para o nosso grande dia.
+                                </p>
+                            </div>
+    
+                            ${notificationsHTML}
+    
+                            <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h2 class="text-2xl font-semibold mb-6 text-center border-b pb-3">
+                                    <i class="fas fa-hourglass-half text-primary dark:text-dark-primary mr-2"></i>
+                                    Contagem Regressiva
+                                </h2>
+                                <div id="countdown" class="flex justify-center space-x-2 md:space-x-4 mb-6"></div>
+                                <div class="text-center text-sm text-gray-500 dark:text-gray-400">
+                                    Mal podemos esperar para celebrar com você! 💕
+                                </div>
+                            </div>
+    
+                            <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h2 class="text-xl font-semibold mb-4 border-b pb-2">
+                                    Sua Confirmação (RSVP)
+                                </h2>
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between text-lg">
+                                        <span><i class="fas fa-users fa-fw mr-2 text-gray-500"></i>Convidados:</span>
+                                        <span class="font-bold text-primary dark:text-dark-primary">${allowedGuests}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-lg">
+                                        <span><i class="fas fa-utensils fa-fw mr-2 text-gray-500"></i>Presença no Restaurante:</span>
+                                        <span class="font-bold ${willAttendRestaurant ? 'text-green-500' : 'text-red-500'}">
+                                            ${willAttendRestaurant ? 'Confirmada' : 'Não Confirmada'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+    
+                            <div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h2 class="text-xl font-semibold mb-4 border-b pb-2">
+                                    Agenda do Dia
+                                </h2>
+                                <ol class="relative border-l border-gray-200 dark:border-gray-700 ml-4">
+                                    <li class="mb-10 ml-6">
+                                        <span class="absolute flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-blue-900">
+                                            <i class="fas fa-church text-blue-800 dark:text-blue-300"></i>
+                                        </span>
+                                        <h3 class="flex items-center mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+                                            Cerimônia
+                                        </h3>
+                                        <time class="block mb-2 text-sm font-normal leading-none text-gray-400 dark:text-gray-500">
+                                            ${formatTime(weddingDetails.weddingDate)}h
+                                        </time>
+                                        <p class="text-base font-normal text-gray-500 dark:text-gray-400">
+                                            ${weddingDetails.venue}
+                                        </p>
+                                    </li>
+                                    <li class="ml-6">
+                                        <span class="absolute flex items-center justify-center w-8 h-8 bg-green-100 rounded-full -left-4 ring-8 ring-white dark:ring-gray-900 dark:bg-green-900">
+                                            <i class="fas fa-glass-cheers text-green-800 dark:text-green-300"></i>
+                                        </span>
+                                        <h3 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+                                            Recepção
+                                        </h3>
+                                        <p class="text-base font-normal text-gray-500 dark:text-gray-400">
+                                            ${weddingDetails.restaurantName}
+                                        </p>
+                                    </li>
+                                </ol>
+                            </div>
+    
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button id="manage-rsvp-button" 
+                                        class="bg-primary text-white font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all">
+                                    <i class="fas fa-edit mr-2"></i>Gerenciar Confirmação
+                                </button>
+                                <button data-view-target="gifts" 
+                                        class="quick-nav-button bg-secondary text-gray-800 font-bold py-4 px-4 rounded-lg hover:bg-opacity-90 transition-all">
+                                    <i class="fas fa-gift mr-2"></i>Ver Lista de Presentes
+                                </button>
+                                <button data-view-target="guestbook" 
+                                        class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                                    <i class="fas fa-book-open mr-2"></i>Mural de Recados
+                                </button>
+                                <button data-view-target="guest-photos" 
+                                        class="quick-nav-button bg-light-card dark:bg-dark-card font-bold py-4 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                                    <i class="fas fa-camera-retro mr-2"></i>Galeria de Fotos
+                                </button>
+                                ${dressCodeButtonHTML}
+                            </div>
+                        </div>`;
+                }
+                return `<div class="bg-light-card dark:bg-dark-card rounded-xl shadow-md p-8 max-w-lg mx-auto text-center"><i class="fas fa-key text-3xl text-gray-400 mb-4"></i><h2 class="text-xl font-medium mb-2">Área Exclusiva</h2><p class="text-gray-600 dark:text-gray-400 mb-6">Use sua chave de acesso para se cadastrar ou faça login para participar.</p><div class="space-y-3"><button id="open-signup-button" class="w-full py-3 px-4 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-lg">Cadastrar com Chave de Acesso</button><button id="open-login-button" class="w-full py-2 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg">Já tenho conta (Login)</button></div></div>`;
         default:
             return `<div class="text-center p-8"><h2 class="text-2xl font-bold mb-4">Página não encontrada</h2></div>`;
     }

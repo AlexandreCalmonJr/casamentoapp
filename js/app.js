@@ -1,26 +1,20 @@
-// js/app.js
+// js/app.js - VERSÃO ATUALIZADA
 
 import { adminEmails } from './config.js';
 import * as Firebase from './firebase-service.js';
+import { notificationManager, requestNotificationPermissionOnLogin } from './notifications.js';
 import * as UI from './ui.js';
 
-
-// Variável para guardar o evento de instalação
 let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-  // Impede que o mini-infobar apareça no Chrome
-  e.preventDefault();
-  // Guarda o evento para que possa ser acionado mais tarde.
-  deferredPrompt = e;
-  // Mostra nosso botão de instalação personalizado
-  const installButton = document.getElementById('install-pwa-button');
-  if (installButton) {
-    installButton.classList.remove('hidden');
-  }
+    e.preventDefault();
+    deferredPrompt = e;
+    const installButton = document.getElementById('install-pwa-button');
+    if (installButton) {
+        installButton.classList.remove('hidden');
+    }
 });
-
-
 
 const appState = {
     currentView: 'home',
@@ -199,6 +193,11 @@ async function handlePhotoUploadClick() {
         await Firebase.uploadPhoto(file, appState.currentUser, (progress) => { progressBar.style.width = `${progress}%`; });
         fileInput.value = '';
         UI.showToast('Foto enviada com sucesso!', 'success');
+        
+        // Notifica outros usuários
+        if (appState.currentUser.displayName) {
+            notificationManager.notifyNewPhoto(appState.currentUser.displayName);
+        }
     } catch (error) {
         UI.showToast('Erro no upload. Tente novamente.', 'error');
     } finally {
@@ -218,6 +217,11 @@ async function handleGuestbookSubmit(event) {
         await Firebase.postGuestbookMessage(appState.currentUser, message);
         messageInput.value = '';
         UI.showToast('Sua mensagem foi enviada!', 'success');
+        
+        // Notifica outros usuários
+        if (appState.currentUser.displayName) {
+            notificationManager.notifyNewMessage(appState.currentUser.displayName);
+        }
     } catch (error) {
         UI.showToast('Erro ao enviar mensagem.', 'error');
     } finally {
@@ -270,8 +274,11 @@ function setupAuthFormListeners() {
 
 async function setupViewSpecificListeners() {
     cleanupListeners();
+    
+    // REMOVIDO: Contagem regressiva da home
+    // A contagem agora só aparece na aba RSVP
+    
     if (appState.currentView === 'home' && appState.weddingDetails) {
-        appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
         if (appState.weddingDetails.carouselPhotos && appState.weddingDetails.carouselPhotos.length > 0) {
             UI.initializeCarousel();
         }
@@ -296,7 +303,7 @@ async function setupViewSpecificListeners() {
             });
         }
     }
-    // ========= MODIFICADO =========
+    
     if (appState.currentView === 'gifts' && appState.currentUser) {
         appState.giftListUnsubscribe = Firebase.listenToGiftList((gifts) => {
             UI.renderGiftList(gifts, appState.currentUser);
@@ -304,7 +311,6 @@ async function setupViewSpecificListeners() {
                 const button = e.currentTarget;
                 UI.setButtonLoading(button, true);
                 try {
-                    // Alterado para remover contribuidor
                     await Firebase.removeContributorFromGift(button.dataset.id, appState.currentUser);
                     UI.showToast('Contribuição desfeita.', 'success');
                 } catch (err) {
@@ -325,9 +331,13 @@ async function setupViewSpecificListeners() {
             });
         });
     }
-    // ========= FIM DA MODIFICAÇÃO =========
     
     if (appState.currentView === 'rsvp') {
+        // NOVO: Countdown agora aparece na aba RSVP
+        if (appState.currentUser && appState.weddingDetails) {
+            appState.countdownInterval = UI.updateCountdown(appState.weddingDetails.weddingDate);
+        }
+        
         document.getElementById('open-login-button')?.addEventListener('click', () => { UI.renderAuthForm('login'); setupAuthFormListeners(); });
         document.getElementById('open-signup-button')?.addEventListener('click', async () => {
             const key = prompt("Por favor, insira sua chave de acesso para iniciar o cadastro:");
@@ -351,6 +361,18 @@ async function setupViewSpecificListeners() {
             const userRole = appState.accessKeyInfo?.data?.role;
             if (userRole) {
                 UI.renderDressCodeModal(appState.weddingDetails.dressCodePalettes, userRole);
+            }
+        });
+
+        // NOVO: Botão para ativar notificações
+        document.getElementById('enable-notifications-btn')?.addEventListener('click', async () => {
+            const granted = await notificationManager.requestPermission();
+            if (granted) {
+                UI.showToast('Notificações ativadas com sucesso!', 'success');
+                document.getElementById('enable-notifications-btn').classList.add('hidden');
+                document.getElementById('notifications-enabled-msg').classList.remove('hidden');
+            } else {
+                UI.showToast('Permissão negada. Ative nas configurações do navegador.', 'error');
             }
         });
     }
@@ -411,7 +433,6 @@ async function updateUserArea(user) {
     }
 }
 
-// ========= MODIFICADO =========
 function setupModalListeners() {
     document.getElementById('close-auth-modal').addEventListener('click', () => UI.toggleAuthModal(false));
     document.getElementById('close-pix-modal').addEventListener('click', () => UI.togglePixModal(false));
@@ -431,11 +452,9 @@ function setupModalListeners() {
             UI.setButtonLoading(confirmButton, true);
             try {
                 if (giftId !== 'custom') {
-                    // Alterado para adicionar contribuidor
                     await Firebase.addContributorToGift(giftId, appState.currentUser);
                 }
                 UI.togglePixModal(false);
-                // Mensagem alterada
                 UI.showToast('Obrigado pela sua contribuição!', 'success');
             } catch (err) {
                 console.error("Erro ao adicionar contribuição:", err);
@@ -444,7 +463,6 @@ function setupModalListeners() {
         }
     });
 }
-// ========= FIM DA MODIFICAÇÃO =========
 
 window.onpopstate = (event) => {
     if (event.state?.view) {
@@ -454,7 +472,6 @@ window.onpopstate = (event) => {
 };
 
 async function initApp() {
-
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js')
@@ -510,6 +527,20 @@ async function initApp() {
             appState.currentUser = user;
             
             await updateUserArea(user);
+
+            // NOVO: Solicita permissão de notificação após login
+            if (user) {
+                await requestNotificationPermissionOnLogin(user);
+                
+                // Inicia verificação periódica de notificações
+                if (appState.accessKeyInfo) {
+                    notificationManager.startPeriodicCheck(
+                        appState.weddingDetails,
+                        user,
+                        appState.accessKeyInfo
+                    );
+                }
+            }
 
             if (keyFromUrl && !user) {
                 const showSignupFlow = async () => {

@@ -142,6 +142,7 @@ export function renderSidebarNav() {
     const navItems = [
         { tab: 'report', icon: 'fa-chart-pie', label: 'Relatório' },
         { tab: 'keys', icon: 'fa-key', label: 'Convites' },
+        { tab: 'notifications', icon: 'fa-bell', label: 'Notificações' }, // NOVO
         { tab: 'guestbook', icon: 'fa-book-open', label: 'Recados' },
         { tab: 'gifts', icon: 'fa-gift', label: 'Presentes' },
         { tab: 'admin-gallery', icon: 'fa-images', label: 'Galeria' },
