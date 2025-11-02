@@ -1076,4 +1076,192 @@ async function updateStats() {
     }
 }
 
+async function sendManualNotification(recipients, title, message, icon, urgent) {
+    const button = document.querySelector('#manual-notification-form button[type="submit"]');
+    UI.setButtonLoading(button, true);
+
+    try {
+        // 1. Busca tokens dos destinatários
+        const tokens = await getRecipientTokens(recipients);
+        
+        if (tokens.length === 0) {
+            showToast('Nenhum destinatário encontrado com notificações ativas.', 'error');
+            UI.setButtonLoading(button, false);
+            return;
+        }
+
+        // 2. Cria notificação no Firestore
+        const notificationData = {
+            recipients,
+            title,
+            message,
+            icon,
+            urgent: urgent || false,
+            sentAt: firebase.firestore.FieldValue.serverTimestamp(),
+            sentBy: auth.currentUser.email,
+            type: 'manual',
+            tokensSent: tokens.length
+        };
+
+        const docRef = await db.collection('notifications').add(notificationData);
+
+        // 3. Envia para cada token (via Cloud Function ou aqui mesmo)
+        const results = await sendToTokens(tokens, {
+            title,
+            body: message,
+            icon,
+            urgent,
+            notificationId: docRef.id
+        });
+
+        showToast(`Notificação enviada para ${results.success} de ${tokens.length} destinatário(s)!`, 'success');
+        
+        // 4. Registra no histórico
+        await docRef.update({
+            delivered: results.success,
+            failed: results.failed
+        });
+
+        // Limpa formulário
+        document.getElementById('manual-notification-form').reset();
+        
+        // Atualiza histórico
+        await loadNotificationHistory();
+
+    } catch (error) {
+        console.error('Erro ao enviar notificação:', error);
+        showToast('Erro ao enviar notificação.', 'error');
+    } finally {
+        UI.setButtonLoading(button, false);
+    }
+}
+
+// Busca tokens FCM dos usuários baseado no filtro
+async function getRecipientTokens(recipients) {
+    try {
+        let query = db.collection('users');
+        
+        // Aplica filtro baseado no tipo de destinatários
+        if (recipients !== 'all') {
+            // Busca chaves de acesso que atendem ao critério
+            let keysQuery = db.collection('accessKeys').where('isUsed', '==', true);
+            
+            if (recipients === 'restaurant') {
+                keysQuery = keysQuery.where('willAttendRestaurant', '==', true);
+            } else if (recipients === 'ceremony') {
+                keysQuery = keysQuery.where('willAttendRestaurant', '==', false);
+            } else if (recipients === 'special') {
+                keysQuery = keysQuery.where('role', 'in', ['Padrinho', 'Madrinha', 'Amigo do Noivo', 'Amiga da Noiva']);
+            }
+            
+            const keysSnapshot = await keysQuery.get();
+            const userIds = keysSnapshot.docs.map(doc => doc.data().usedByUserId).filter(id => id);
+            
+            if (userIds.length === 0) return [];
+            
+            // Busca usuários correspondentes em lotes (Firestore limita 'in' a 10 itens)
+            const tokens = [];
+            for (let i = 0; i < userIds.length; i += 10) {
+                const batch = userIds.slice(i, i + 10);
+                const usersSnapshot = await db.collection('users')
+                    .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                    .get();
+                
+                usersSnapshot.forEach(doc => {
+                    const token = doc.data().fcmToken;
+                    if (token) tokens.push(token);
+                });
+            }
+            
+            return tokens;
+        } else {
+            // Busca todos os tokens
+            const usersSnapshot = await query.get();
+            return usersSnapshot.docs
+                .map(doc => doc.data().fcmToken)
+                .filter(token => token);
+        }
+    } catch (error) {
+        console.error('Erro ao buscar tokens:', error);
+        return [];
+    }
+}
+
+// Envia notificações para os tokens
+async function sendToTokens(tokens, payload) {
+    // IMPORTANTE: Esta função deve ser executada via Cloud Functions
+    // Aqui está um exemplo de como seria no servidor
+    
+    // Por enquanto, vamos criar documentos na fila para uma Cloud Function processar
+    const results = { success: 0, failed: 0 };
+    
+    try {
+        const batch = db.batch();
+        
+        tokens.forEach(token => {
+            const queueRef = db.collection('notificationQueue').doc();
+            batch.set(queueRef, {
+                token,
+                payload: {
+                    notification: {
+                        title: payload.title,
+                        body: payload.body,
+                        icon: '/images/icons/icon-192x192.png'
+                    },
+                    data: {
+                        tag: payload.notificationId || 'default',
+                        urgent: String(payload.urgent || false),
+                        url: '#rsvp'
+                    }
+                },
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                processed: false
+            });
+        });
+        
+        await batch.commit();
+        results.success = tokens.length;
+        
+    } catch (error) {
+        console.error('Erro ao enviar notificações:', error);
+        results.failed = tokens.length;
+    }
+    
+    return results;
+}
+
+// Função helper para contar destinatários
+async function getRecipientCount(recipients) {
+    try {
+        const tokens = await getRecipientTokens(recipients);
+        return tokens.length;
+    } catch {
+        return 0;
+    }
+}
+
+// Atualiza as estatísticas no dashboard
+async function updateStats() {
+    try {
+        // Total de assinantes (usuários com token)
+        const usersSnapshot = await db.collection('users')
+            .where('fcmToken', '!=', null)
+            .get();
+        document.getElementById('total-subscribers').textContent = usersSnapshot.size;
+
+        // Notificações enviadas
+        const notificationsSnapshot = await db.collection('notifications').get();
+        document.getElementById('notifications-sent').textContent = notificationsSnapshot.size;
+
+        // Notificações na fila
+        const queueSnapshot = await db.collection('notificationQueue')
+            .where('processed', '==', false)
+            .get();
+        document.getElementById('notifications-scheduled').textContent = queueSnapshot.size;
+
+    } catch (error) {
+        console.error('Erro ao atualizar estatísticas:', error);
+    }
+}
+
 initializeApp();
