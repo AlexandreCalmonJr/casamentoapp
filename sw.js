@@ -1,7 +1,8 @@
 // sw.js
-const CACHE_NAME = 'casamento-app-v1.0.5'; // Incrementei a versão
 
-const urlsToCache = [
+const CACHE_NAME = 'casamento-app-v5'; // Versão do cache incrementada
+// Lista de arquivos essenciais para o funcionamento offline do app.
+const FILES_TO_CACHE = [
   '/',
   '/index.html',
   '/admin.html',
@@ -13,85 +14,60 @@ const urlsToCache = [
   '/js/notifications.js',
   '/js/admin-app.js',
   '/js/admin-ui.js',
-  '/js/pdf-generator.js',
-  '/manifest.json',
-  '/images/icons/icon-192x192.png',
-  '/images/icons/icon-512x512.png'
-  // REMOVIDO: Tailwind CDN (causa erro de CORS)
-  // REMOVIDO: Font Awesome CDN (causa erro de CORS)
+  'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
-self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Instalando...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[ServiceWorker] Pré-cache de arquivos');
-        // Adiciona arquivos um por um e ignora erros
-        return Promise.allSettled(
-          urlsToCache.map(url => 
-            cache.add(url).catch(err => {
-              console.warn(`[ServiceWorker] Falha ao cachear ${url}:`, err);
-              return null;
-            })
-          )
-        );
-      })
-      .then(() => self.skipWaiting())
+// Evento de instalação: abre o cache e armazena os arquivos.
+self.addEventListener('install', (evt) => {
+  evt.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[ServiceWorker] Pré-cache de arquivos da aplicação');
+      return cache.addAll(FILES_TO_CACHE);
+    })
   );
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Ativando...');
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[ServiceWorker] Removendo cache antigo:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+// Evento de ativação: limpa caches antigos se houver.
+self.addEventListener('activate', (evt) => {
+  evt.waitUntil(
+    caches.keys().then((keyList) => {
+      return Promise.all(keyList.map((key) => {
+        if (key !== CACHE_NAME) {
+          console.log('[ServiceWorker] Removendo cache antigo', key);
+          return caches.delete(key);
+        }
+      }));
+    })
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  // Ignora requisições para CDNs externos
-  const url = new URL(event.request.url);
-  if (
-    url.hostname.includes('cdn.') || 
-    url.hostname.includes('cloudinary.com') ||
-    url.hostname.includes('firebasestorage.googleapis.com') ||
-    url.hostname.includes('googleapis.com')
-  ) {
-    return; // Deixa o navegador fazer a requisição normalmente
+// Evento de fetch: implementa a estratégia Stale-While-Revalidate
+self.addEventListener('fetch', (evt) => {
+  // Ignora requisições que não são GET
+  if (evt.request.method !== 'GET') {
+    return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
+  evt.respondWith(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cachedResponse = await cache.match(evt.request);
+
+      const fetchPromise = fetch(evt.request).then((networkResponse) => {
+        // Se a requisição for bem-sucedida, atualiza o cache
+        if (networkResponse.ok) {
+            cache.put(evt.request, networkResponse.clone());
         }
-        return fetch(event.request).then((response) => {
-          // Não cacheia se não for uma resposta válida
-          if (!response || response.status !== 200 || response.type === 'error') {
-            return response;
-          }
+        return networkResponse;
+      }).catch(err => {
+        console.error('[ServiceWorker] Fetch falhou:', err);
+      });
 
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-
-          return response;
-        });
-      })
-      .catch(() => {
-        // Retorna página offline se necessário (opcional)
-        return caches.match('/index.html');
-      })
+      // Retorna o conteúdo do cache imediatamente se disponível,
+      // enquanto a rede busca a atualização em segundo plano.
+      return cachedResponse || fetchPromise;
+    })
   );
 });
