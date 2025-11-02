@@ -1,7 +1,10 @@
 // js/admin-app.js
 
+// js/admin-app.js
+
 import { adminNotificationManager } from './admin-notifications.js';
 import * as UI from './admin-ui.js';
+import { showToast } from './admin-ui.js'; // ADICIONE ESTA LINHA
 import { adminEmails } from './config.js';
 import { auth, db, uploadFileToCloudinary } from './firebase-service.js';
 import { PDFGenerator } from './pdf-generator.js';
@@ -666,13 +669,8 @@ async function loadTab(tabName) {
     if (tabName === 'notifications') {
         DOMElements.tabContent.innerHTML = adminNotificationManager.renderNotificationControl();
         
-        // Carrega configurações
         await adminNotificationManager.loadNotificationSettings();
-        
-        // Atualiza estatísticas
         await adminNotificationManager.updateStats();
-        
-        // Carrega histórico
         await adminNotificationManager.loadNotificationHistory();
 
         // Event Listeners
@@ -692,7 +690,7 @@ async function loadTab(tabName) {
             const urgent = document.getElementById('notification-urgent').checked;
 
             if (!title || !message) {
-                UI.showToast('Preencha o título e a mensagem!', 'error');
+                showToast('Preencha o título e a mensagem!', 'error');
                 UI.setButtonLoading(button, false);
                 return;
             }
@@ -707,7 +705,7 @@ async function loadTab(tabName) {
             const icon = document.getElementById('notification-icon').value;
 
             if (!title || !message) {
-                UI.showToast('Preencha o título e a mensagem primeiro!', 'error');
+                showToast('Preencha o título e a mensagem primeiro!', 'error');
                 return;
             }
 
@@ -726,7 +724,9 @@ async function loadTab(tabName) {
                 document.getElementById('manual-notification-form').scrollIntoView({ behavior: 'smooth' });
             });
         });
-
+        
+        return; // IMPORTANTE: Para aqui para não executar outros ifs
+    }
     if (tabName === 'details') {
 
         DOMElements.tabContent.innerHTML = UI.renderDetailsEditor(state.weddingDetails);
@@ -816,7 +816,7 @@ async function loadTab(tabName) {
         });
     }
 }
-}
+
 
 
 function setupEventListeners() {

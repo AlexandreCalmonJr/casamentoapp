@@ -1,6 +1,5 @@
-// js/admin-notifications.js
 
-import * as UI from './admin-ui.js';
+import { showToast } from './admin-ui.js';
 import { db } from './firebase-service.js';
 
 export class AdminNotificationManager {
@@ -142,7 +141,7 @@ export class AdminNotificationManager {
                             <select id="notification-icon" class="w-full p-2 border rounded-lg">
                                 <option value="🎉">🎉 Celebração</option>
                                 <option value="⚠️">⚠️ Aviso</option>
-                                <option value="💒">💒 Cerimônia</option>
+                                <option value="💍">💍 Cerimônia</option>
                                 <option value="🍽️">🍽️ Restaurante</option>
                                 <option value="📸">📸 Foto</option>
                                 <option value="💕">💕 Coração</option>
@@ -235,10 +234,10 @@ export class AdminNotificationManager {
 
         try {
             await db.collection('siteConfig').doc('notifications').set(settings, { merge: true });
-            UI.showToast('Configurações salvas com sucesso!', 'success');
+            showToast('Configurações salvas com sucesso!', 'success');
         } catch (error) {
             console.error('Erro ao salvar configurações:', error);
-            UI.showToast('Erro ao salvar configurações.', 'error');
+            showToast('Erro ao salvar configurações. Tente novamente.', 'error');
         }
     }
 
@@ -277,14 +276,14 @@ export class AdminNotificationManager {
             // Registra no histórico
             this.addToHistory(notification);
             
-            UI.showToast(`Notificação enviada para ${this.getRecipientCount(recipients)} convidado(s)!`, 'success');
+            showToast(`Notificação enviada para ${this.getRecipientCount(recipients)} convidado(s)!`, 'success');
             
             // Limpa o formulário
             document.getElementById('manual-notification-form').reset();
             
         } catch (error) {
             console.error('Erro ao enviar notificação:', error);
-            UI.showToast('Erro ao enviar notificação.', 'error');
+            showToast('Erro ao enviar notificação.', 'error');
         }
     }
 
@@ -361,8 +360,6 @@ export class AdminNotificationManager {
     }
 
     getRecipientCount(recipients) {
-        // Aqui você pode buscar do Firestore a quantidade real
-        // Por enquanto, retorna estimativas
         const counts = {
             'all': 'todos os',
             'restaurant': 'X',
@@ -416,7 +413,7 @@ export class AdminNotificationManager {
     // Atualiza estatísticas
     async updateStats() {
         try {
-            // Total de assinantes (usuários que aceitaram notificações)
+            // Total de assinantes
             const usersSnapshot = await db.collection('users').get();
             document.getElementById('total-subscribers').textContent = usersSnapshot.size;
 
@@ -424,7 +421,7 @@ export class AdminNotificationManager {
             const notificationsSnapshot = await db.collection('notifications').get();
             document.getElementById('notifications-sent').textContent = notificationsSnapshot.size;
 
-            // Agendadas (você pode implementar lógica específica)
+            // Agendadas
             document.getElementById('notifications-scheduled').textContent = '2';
 
         } catch (error) {
