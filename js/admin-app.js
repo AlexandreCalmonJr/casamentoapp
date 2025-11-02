@@ -2,9 +2,8 @@
 
 // js/admin-app.js
 
-import { adminNotificationManager } from './admin-notifications.js';
 import * as UI from './admin-ui.js';
-import { showToast } from './admin-ui.js'; // ADICIONE ESTA LINHA
+import { showToast } from './admin-ui.js'; // Importação do showToast (que agora existe)
 import { adminEmails } from './config.js';
 import { auth, db, uploadFileToCloudinary } from './firebase-service.js';
 import { PDFGenerator } from './pdf-generator.js';
@@ -665,17 +664,19 @@ async function loadTab(tabName) {
     if (window.innerWidth < 1024) DOMElements.sidebar.classList.add('-translate-x-full');
     cleanupListeners();
 
-    // ========= NOVO: Tab de Notificações =========
+    // ========= ATUALIZADO: Tab de Notificações =========
     if (tabName === 'notifications') {
-        DOMElements.tabContent.innerHTML = adminNotificationManager.renderNotificationControl();
+        // Agora usa a função de renderização do admin-ui.js
+        DOMElements.tabContent.innerHTML = UI.renderNotificationManager();
         
-        await adminNotificationManager.loadNotificationSettings();
-        await adminNotificationManager.updateStats();
-        await adminNotificationManager.loadNotificationHistory();
+        // Chama as funções de lógica que agora estão neste arquivo
+        await loadNotificationSettings();
+        await updateStats();
+        await loadNotificationHistory();
 
-        // Event Listeners
+        // Event Listeners (agora chamam as funções locais)
         document.getElementById('save-notification-settings').addEventListener('click', async () => {
-            await adminNotificationManager.saveNotificationSettings();
+            await saveNotificationSettings();
         });
 
         document.getElementById('manual-notification-form').addEventListener('submit', async (e) => {
@@ -695,7 +696,7 @@ async function loadTab(tabName) {
                 return;
             }
 
-            await adminNotificationManager.sendManualNotification(recipients, title, message, icon, urgent);
+            await sendManualNotification(recipients, title, message, icon, urgent);
             UI.setButtonLoading(button, false);
         });
 
@@ -709,7 +710,7 @@ async function loadTab(tabName) {
                 return;
             }
 
-            adminNotificationManager.showNotificationPreview(title, message, icon);
+            showNotificationPreview(title, message, icon);
         });
 
         // Templates rápidos
@@ -720,12 +721,11 @@ async function loadTab(tabName) {
                 document.getElementById('notification-message').value = button.dataset.message;
                 document.getElementById('notification-recipients').value = button.dataset.recipients;
                 
-                // Scroll para o formulário
                 document.getElementById('manual-notification-form').scrollIntoView({ behavior: 'smooth' });
             });
         });
         
-        return; // IMPORTANTE: Para aqui para não executar outros ifs
+        return; // Fim da aba de notificações
     }
     if (tabName === 'details') {
 
@@ -864,6 +864,216 @@ async function initializeApp() {
             if (user) auth.signOut();
         }
     });
+}
+
+async function saveNotificationSettings() {
+    const settings = {
+        auto24h: document.getElementById('auto-24h-notification').checked,
+        auto3h: document.getElementById('auto-3h-notification').checked,
+        autoGallery: document.getElementById('auto-gallery-notification').checked,
+        autoGuestbook: document.getElementById('auto-guestbook-notification').checked,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await db.collection('siteConfig').doc('notifications').set(settings, { merge: true });
+        showToast('Configurações salvas com sucesso!', 'success');
+    } catch (error) {
+        console.error('Erro ao salvar configurações:', error);
+        showToast('Erro ao salvar configurações. Tente novamente.', 'error');
+    }
+}
+
+// Carrega configurações
+async function loadNotificationSettings() {
+    try {
+        const doc = await db.collection('siteConfig').doc('notifications').get();
+        if (doc.exists) {
+            const settings = doc.data();
+            document.getElementById('auto-24h-notification').checked = settings.auto24h !== false;
+            document.getElementById('auto-3h-notification').checked = settings.auto3h !== false;
+            document.getElementById('auto-gallery-notification').checked = settings.autoGallery !== false;
+            document.getElementById('auto-guestbook-notification').checked = settings.autoGuestbook !== false;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+    }
+}
+
+// Envia notificação manual
+async function sendManualNotification(recipients, title, message, icon, urgent) {
+    const notification = {
+        recipients,
+        title,
+        message,
+        icon,
+        urgent: urgent || false,
+        sentAt: firebase.firestore.FieldValue.serverTimestamp(), 
+        sentBy: auth.currentUser.email, // Usa 'auth' diretamente
+        type: 'manual'
+    };
+
+    try {
+        await db.collection('notifications').add(notification);
+        
+        // Registra no histórico
+        addToHistory(notification);
+        
+        showToast(`Notificação enviada para ${getRecipientCount(recipients)} convidado(s)!`, 'success');
+        
+        // Limpa o formulário
+        document.getElementById('manual-notification-form').reset();
+        
+    } catch (error) {
+        console.error('Erro ao enviar notificação:', error);
+        showToast('Erro ao enviar notificação.', 'error');
+    }
+}
+
+// Prévia da notificação
+function showNotificationPreview(title, message, icon) {
+    const previewHTML = `
+        <div class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" id="notification-preview-modal">
+            <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
+                <h3 class="text-lg font-semibold mb-4 text-center">Prévia da Notificação</h3>
+                
+                <!-- Simulação de notificação mobile -->
+                <div class="bg-gray-100 rounded-lg p-4 shadow-inner">
+                    <div class="bg-white rounded-lg p-4 shadow-lg">
+                        <div class="flex items-start">
+                            <div class="text-3xl mr-3">${icon}</div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-semibold text-sm">Nosso Casamento</span>
+                                    <span class="text-xs text-gray-500">agora</span>
+                                </div>
+                                <h4 class="font-bold text-gray-900 mb-1">${title}</h4>
+                                <p class="text-sm text-gray-700">${message}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="close-preview" class="mt-6 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Fechar Prévia
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', previewHTML);
+    document.getElementById('close-preview').addEventListener('click', () => {
+        document.getElementById('notification-preview-modal').remove();
+    });
+}
+
+// Adiciona ao histórico
+function addToHistory(notification) {
+    const historyContainer = document.getElementById('notifications-history');
+    if (!historyContainer) return;
+    
+    const historyItem = `
+        <div class="border rounded-lg p-4 hover:bg-gray-50">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start">
+                    <span class="text-2xl mr-3">${notification.icon}</span>
+                    <div>
+                        <h4 class="font-medium">${notification.title}</h4>
+                        <p class="text-sm text-gray-600 mt-1">${notification.message}</p>
+                        <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                            <span><i class="fas fa-user mr-1"></i>${getRecipientLabel(notification.recipients)}</span>
+                            <span><i class="fas fa-clock mr-1"></i>Agora</span>
+                            ${notification.urgent ? '<span class="text-red-500"><i class="fas fa-exclamation-triangle mr-1"></i>Urgente</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    historyContainer.insertAdjacentHTML('afterbegin', historyItem);
+}
+
+// Helpers
+function getRecipientLabel(recipients) {
+    const labels = {
+        'all': 'Todos',
+        'restaurant': 'Restaurante',
+        'ceremony': 'Cerimônia',
+        'special': 'Especiais'
+    };
+    return labels[recipients] || recipients;
+}
+
+function getRecipientCount(recipients) {
+    // Esta função pode ser melhorada para buscar os totais reais
+    const counts = {
+        'all': 'todos os',
+        'restaurant': 'X',
+        'ceremony': 'Y',
+        'special': 'Z'
+    };
+    return counts[recipients] || '?';
+}
+
+// Carrega histórico do Firestore
+async function loadNotificationHistory() {
+    const historyContainer = document.getElementById('notifications-history');
+    if (!historyContainer) return;
+
+    db.collection('notifications')
+        .orderBy('sentAt', 'desc')
+        .limit(20)
+        .onSnapshot(snapshot => {
+            if (snapshot.empty) {
+                historyContainer.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhuma notificação enviada ainda.</p>';
+                return;
+            }
+
+            historyContainer.innerHTML = '';
+            snapshot.forEach(doc => {
+                const notification = doc.data();
+                const date = notification.sentAt ? notification.sentAt.toDate() : new Date();
+                
+                const historyItem = `
+                    <div class="border rounded-lg p-4 hover:bg-gray-50">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start">
+                                <span class="text-2xl mr-3">${notification.icon || '📬'}</span>
+                                <div>
+                                    <h4 class="font-medium">${notification.title}</h4>
+                                    <p class="text-sm text-gray-600 mt-1">${notification.message}</p>
+                                    <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                        <span><i class="fas fa-user mr-1"></i>${getRecipientLabel(notification.recipients)}</span>
+                                        <span><i class="fas fa-clock mr-1"></i>${date.toLocaleString('pt-BR')}</span>
+                                        ${notification.urgent ? '<span class="text-red-500"><i class="fas fa-exclamation-triangle mr-1"></i>Urgente</span>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                historyContainer.insertAdjacentHTML('beforeend', historyItem);
+            });
+        });
+}
+
+// Atualiza estatísticas
+async function updateStats() {
+    try {
+        // Total de assinantes
+        const usersSnapshot = await db.collection('users').get();
+        document.getElementById('total-subscribers').textContent = usersSnapshot.size;
+
+        // Notificações enviadas
+        const notificationsSnapshot = await db.collection('notifications').get();
+        document.getElementById('notifications-sent').textContent = notificationsSnapshot.size;
+
+        // Agendadas (Placeholder)
+        document.getElementById('notifications-scheduled').textContent = '0'; // Atualizado para 0
+
+    } catch (error) {
+        console.error('Erro ao atualizar estatísticas:', error);
+    }
 }
 
 initializeApp();

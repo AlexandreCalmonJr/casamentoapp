@@ -2,6 +2,25 @@
 
 // --- Funções de Ajuda e Otimização ---
 
+const notyf = new Notyf({
+    duration: 4000,
+    position: { x: 'right', y: 'top' },
+    types: [
+        { type: 'success', backgroundColor: '#34D399', icon: { className: 'fas fa-check-circle', tagName: 'i', color: 'white' } },
+        { type: 'error', backgroundColor: '#EF4444', icon: { className: 'fas fa-exclamation-circle', tagName: 'i', color: 'white' } },
+        { type: 'info', backgroundColor: '#3B82F6', icon: { className: 'fas fa-info-circle', tagName: 'i', color: 'white' } }
+    ]
+});
+
+/**
+ * Exibe uma notificação toast.
+ * @param {string} message - A mensagem a ser exibida.
+ * @param {'success' | 'error' | 'info'} type - O tipo de notificação.
+ */
+export function showToast(message, type = 'success') {
+    notyf.open({ type, message });
+}
+
 function getOptimizedCloudinaryUrl(url) {
     if (!url || !url.includes('res.cloudinary.com')) {
         return url || 'https://placehold.co/400x400/EEE/31343C?text=Foto';
@@ -788,4 +807,218 @@ export function updateAdminGallery(photos) {
         return;
     }
     container.innerHTML = photos.map(photo => `<div class="relative group"><img src="${getOptimizedCloudinaryUrl(photo.imageUrl)}" alt="Foto de ${photo.userName}" class="w-full h-full object-cover rounded-lg shadow-md"><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex flex-col items-center justify-center text-white p-2 rounded-lg"><p class="text-xs opacity-0 group-hover:opacity-100 transition-opacity text-center">Enviada por:<br><strong>${photo.userName}</strong></p><button data-id="${photo.id}" class="delete-photo-btn mt-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xl" aria-label="Excluir foto"><i class="fas fa-trash-alt"></i></button></div></div>`).join('');
+}
+
+export function renderNotificationManager() {
+    return `
+    <div class="space-y-6">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <i class="fas fa-bell text-indigo-600 mr-2"></i>
+                Gerenciar Notificações
+            </h2>
+
+            <!-- Status das Notificações -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Total de Assinantes</p>
+                            <p id="total-subscribers" class="text-2xl font-bold text-blue-600">-</p>
+                        </div>
+                        <i class="fas fa-users text-3xl text-blue-400"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Notificações Enviadas</p>
+                            <p id="notifications-sent" class="text-2xl font-bold text-green-600">-</p>
+                        </div>
+                        <i class="fas fa-paper-plane text-3xl text-green-400"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Agendadas</p>
+                            <p id="notifications-scheduled" class="text-2xl font-bold text-purple-600">-</p>
+                        </div>
+                        <i class="fas fa-clock text-3xl text-purple-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurações de Notificações Automáticas -->
+            <div class="border-t pt-6 mb-6">
+                <h3 class="text-xl font-semibold mb-4">Notificações Automáticas</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-1">
+                            <h4 class="font-medium">Lembrete 24h Antes</h4>
+                            <p class="text-sm text-gray-600">Envia notificação 24 horas antes do casamento</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="auto-24h-notification" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-1">
+                            <h4 class="font-medium">Lembrete 3h Antes</h4>
+                            <p class="text-sm text-gray-600">Envia notificação 3 horas antes da cerimônia</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="auto-3h-notification" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-1">
+                            <h4 class="font-medium">Notificações de Galeria</h4>
+                            <p class="text-sm text-gray-600">Avisa quando alguém posta uma foto</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="auto-gallery-notification" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex-1">
+                            <h4 class="font-medium">Notificações de Mural</h4>
+                            <p class="text-sm text-gray-600">Avisa quando alguém deixa uma mensagem</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="auto-guestbook-notification" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+                <button id="save-notification-settings" class="mt-4 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Salvar Configurações
+                </button>
+            </div>
+
+            <!-- Enviar Notificação Manual -->
+            <div class="border-t pt-6">
+                <h3 class="text-xl font-semibold mb-4">Enviar Notificação Manual</h3>
+                <form id="manual-notification-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Destinatários</label>
+                        <select id="notification-recipients" class="w-full p-2 border rounded-lg">
+                            <option value="all">Todos os Convidados</option>
+                            <option value="restaurant">Apenas quem vai ao Restaurante</option>
+                            <option value="ceremony">Apenas Cerimônia</option>
+                            <option value="special">Padrinhos e Madrinhas</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Título da Notificação</label>
+                        <input type="text" id="notification-title" 
+                               class="w-full p-2 border rounded-lg" 
+                               placeholder="Ex: Lembrete Importante!"
+                               maxlength="50">
+                        <p class="text-xs text-gray-500 mt-1">Máximo 50 caracteres</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Mensagem</label>
+                        <textarea id="notification-message" 
+                                  class="w-full p-2 border rounded-lg" 
+                                  rows="4"
+                                  placeholder="Digite a mensagem da notificação..."
+                                  maxlength="200"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Máximo 200 caracteres</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Ícone</label>
+                        <select id="notification-icon" class="w-full p-2 border rounded-lg">
+                            <option value="🎉">🎉 Celebração</option>
+                            <option value="⚠️">⚠️ Aviso</option>
+                            <option value="💍">💍 Cerimônia</option>
+                            <option value="🍽️">🍽️ Restaurante</option>
+                            <option value="📸">📸 Foto</option>
+                            <option value="💕">💕 Coração</option>
+                            <option value="ℹ️">ℹ️ Informação</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <input type="checkbox" id="notification-urgent" class="mr-3">
+                        <div>
+                            <label for="notification-urgent" class="font-medium cursor-pointer">
+                                Notificação Urgente
+                            </label>
+                            <p class="text-xs text-gray-600">Fará o celular vibrar e som de alerta</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button type="button" id="preview-notification-btn" 
+                                class="py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                            <i class="fas fa-eye mr-2"></i>Prévia
+                        </button>
+                        <button type="submit" 
+                                class="py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <i class="fas fa-paper-plane mr-2"></i>Enviar Agora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Histórico de Notificações -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-xl font-semibold mb-4">Histórico de Notificações</h3>
+            <div id="notifications-history" class="space-y-3 max-h-96 overflow-y-auto">
+                <!-- Lista será preenchida dinamicamente -->
+            </div>
+        </div>
+
+        <!-- Templates de Notificações -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-xl font-semibold mb-4">Templates Rápidos</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button class="notification-template p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-all"
+                        data-title="📍 Atualização de Local"
+                        data-message="Atenção! Houve uma pequena mudança no local. Confira os detalhes atualizados no app."
+                        data-recipients="all">
+                    <h4 class="font-medium mb-1">📍 Mudança de Local</h4>
+                    <p class="text-sm text-gray-600">Para avisar sobre alteração de endereço</p>
+                </button>
+
+                <button class="notification-template p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-all"
+                        data-title="⏰ Horário Alterado"
+                        data-message="O horário da cerimônia foi ajustado. Por favor, verifique o novo horário no app!"
+                        data-recipients="all">
+                    <h4 class="font-medium mb-1">⏰ Mudança de Horário</h4>
+                    <p class="text-sm text-gray-600">Para avisar sobre alteração de horário</p>
+                </button>
+
+                <button class="notification-template p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-all"
+                        data-title="📸 Compartilhe Fotos!"
+                        data-message="Não esqueça de compartilhar suas fotos na galeria! Queremos guardar cada momento especial."
+                        data-recipients="all">
+                    <h4 class="font-medium mb-1">📸 Incentivo de Fotos</h4>
+                    <p class="text-sm text-gray-600">Lembrar convidados de postar fotos</p>
+                </button>
+
+                <button class="notification-template p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-all"
+                        data-title="🍽️ Cardápio Especial"
+                        data-message="Preparamos um menu incrível para vocês! Haverá opções vegetarianas e veganas."
+                        data-recipients="restaurant">
+                    <h4 class="font-medium mb-1">🍽️ Informação do Restaurante</h4>
+                    <p class="text-sm text-gray-600">Detalhes sobre o jantar</p>
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
 }
