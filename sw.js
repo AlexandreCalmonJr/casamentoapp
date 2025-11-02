@@ -13,7 +13,6 @@ const urlsToCache = [
   '/js/notifications.js',
   '/js/admin-app.js',
   '/js/admin-ui.js',
-  '/js/admin-notifications.js',
   '/js/pdf-generator.js',
   '/manifest.json',
   '/images/icons/icon-192x192.png',
