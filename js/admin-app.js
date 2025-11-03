@@ -1030,24 +1030,6 @@ async function loadNotificationHistory() {
         });
 }
 
-// Atualiza estatísticas
-async function updateStats() {
-    try {
-        // Total de assinantes
-        const usersSnapshot = await db.collection('users').get();
-        document.getElementById('total-subscribers').textContent = usersSnapshot.size;
-
-        // Notificações enviadas
-        const notificationsSnapshot = await db.collection('notifications').get();
-        document.getElementById('notifications-sent').textContent = notificationsSnapshot.size;
-
-        // Agendadas (Placeholder)
-        document.getElementById('notifications-scheduled').textContent = '0'; // Atualizado para 0
-
-    } catch (error) {
-        console.error('Erro ao atualizar estatísticas:', error);
-    }
-}
 
 async function sendManualNotification(recipients, title, message, icon, urgent) {
     const button = document.querySelector('#manual-notification-form button[type="submit"]');
