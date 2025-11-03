@@ -901,34 +901,7 @@ async function loadNotificationSettings() {
 }
 
 // Envia notificação manual
-async function sendManualNotification(recipients, title, message, icon, urgent) {
-    const notification = {
-        recipients,
-        title,
-        message,
-        icon,
-        urgent: urgent || false,
-        sentAt: firebase.firestore.FieldValue.serverTimestamp(), 
-        sentBy: auth.currentUser.email, // Usa 'auth' diretamente
-        type: 'manual'
-    };
 
-    try {
-        await db.collection('notifications').add(notification);
-        
-        // Registra no histórico
-        addToHistory(notification);
-        
-        showToast(`Notificação enviada para ${getRecipientCount(recipients)} convidado(s)!`, 'success');
-        
-        // Limpa o formulário
-        document.getElementById('manual-notification-form').reset();
-        
-    } catch (error) {
-        console.error('Erro ao enviar notificação:', error);
-        showToast('Erro ao enviar notificação.', 'error');
-    }
-}
 
 // Prévia da notificação
 function showNotificationPreview(title, message, icon) {
