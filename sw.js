@@ -14,8 +14,6 @@ const FILES_TO_CACHE = [
   '/js/notifications.js',
   '/js/admin-app.js',
   '/js/admin-ui.js',
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // Evento de instalação: abre o cache e armazena os arquivos.

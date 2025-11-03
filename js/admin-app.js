@@ -900,7 +900,35 @@ async function loadNotificationSettings() {
     }
 }
 
+// Envia notificação manual
+async function sendManualNotification(recipients, title, message, icon, urgent) {
+    const notification = {
+        recipients,
+        title,
+        message,
+        icon,
+        urgent: urgent || false,
+        sentAt: firebase.firestore.FieldValue.serverTimestamp(), 
+        sentBy: auth.currentUser.email, // Usa 'auth' diretamente
+        type: 'manual'
+    };
 
+    try {
+        await db.collection('notifications').add(notification);
+        
+        // Registra no histórico
+        addToHistory(notification);
+        
+        showToast(`Notificação enviada para ${getRecipientCount(recipients)} convidado(s)!`, 'success');
+        
+        // Limpa o formulário
+        document.getElementById('manual-notification-form').reset();
+        
+    } catch (error) {
+        console.error('Erro ao enviar notificação:', error);
+        showToast('Erro ao enviar notificação.', 'error');
+    }
+}
 
 // Prévia da notificação
 function showNotificationPreview(title, message, icon) {
@@ -1203,14 +1231,7 @@ async function sendToTokens(tokens, payload) {
 }
 
 // Função helper para contar destinatários
-async function getRecipientCount(recipients) {
-    try {
-        const tokens = await getRecipientTokens(recipients);
-        return tokens.length;
-    } catch {
-        return 0;
-    }
-}
+
 
 // Atualiza as estatísticas no dashboard
 async function updateStats() {
