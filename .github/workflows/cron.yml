@@ -13,8 +13,24 @@ jobs:
     steps:
       - name: Call Vercel Function
         run: |
-          curl -X GET https://casamentoa2.vercel.app/api/processQueue
+          response=$(curl -s -w "\n%{http_code}" -X GET https://casamentoa2.vercel.app/api/processQueue)
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
           
-      - name: Log Result
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ Error: API returned status $http_code"
+            exit 1
+          fi
+          
+      - name: Log Success
+        if: success()
         run: |
-          echo "Notification queue processed at $(date)"
+          echo "✅ Notification queue processed successfully at $(date)"
+          
+      - name: Log Failure
+        if: failure()
+        run: |
+          echo "❌ Failed to process notification queue at $(date)"

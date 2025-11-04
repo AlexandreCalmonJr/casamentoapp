@@ -713,7 +713,7 @@ async function loadTab(tabName) {
             showNotificationPreview(title, message, icon);
         });
 
-        // Templates rápidos
+    // Templates rápidos
         document.querySelectorAll('.notification-template').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const button = e.currentTarget;
@@ -724,8 +724,38 @@ async function loadTab(tabName) {
                 document.getElementById('manual-notification-form').scrollIntoView({ behavior: 'smooth' });
             });
         });
+
+        // ✅ BOTÃO DE PROCESSAR FILA MANUALMENTE
+        document.getElementById('process-queue-manually')?.addEventListener('click', async (e) => {
+            const button = e.currentTarget;
+            UI.setButtonLoading(button, true);
+            
+            try {
+                // Chama a API diretamente
+                const response = await fetch('/api/processQueue');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(
+                        `✅ Fila processada! ${result.success} enviadas, ${result.failed} falhas`, 
+                        'success'
+                    );
+                    
+                    // Atualiza as estatísticas
+                    await updateStats();
+                    await loadNotificationHistory();
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                console.error('Erro ao processar fila:', error);
+                showToast('❌ Erro ao processar fila: ' + error.message, 'error');
+            } finally {
+                UI.setButtonLoading(button, false);
+            }
+        });
         
-        return; // Fim da aba de notificações
+        return; // ✅ AGORA SIM! Fim da aba de notificações
     }
     if (tabName === 'details') {
 
