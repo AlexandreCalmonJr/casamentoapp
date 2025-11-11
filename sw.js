@@ -44,27 +44,40 @@ self.addEventListener('activate', (evt) => {
 
 // Evento de fetch: implementa a estratégia Stale-While-Revalidate
 self.addEventListener('fetch', (evt) => {
-  // Ignora requisições que não são GET
   if (evt.request.method !== 'GET') {
     return;
   }
 
+  const requestUrl = new URL(evt.request.url);
+
+  // Se a requisição for para uma origem diferente (ex: Google, Firebase, CDN),
+  // não tente fazer cache. Apenas busque da rede.
+  if (requestUrl.origin !== self.location.origin) {
+    evt.respondWith(
+      fetch(evt.request).catch((err) => {
+        console.error('[ServiceWorker] Falha ao buscar recurso de origem cruzada:', evt.request.url, err);
+      })
+    );
+    return;
+  }
+
+  // Se for uma requisição local (do seu próprio site), use a estratégia Stale-While-Revalidate
   evt.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cachedResponse = await cache.match(evt.request);
 
       const fetchPromise = fetch(evt.request).then((networkResponse) => {
-        // Se a requisição for bem-sucedida, atualiza o cache
         if (networkResponse.ok) {
-            cache.put(evt.request, networkResponse.clone());
+          cache.put(evt.request, networkResponse.clone());
         }
         return networkResponse;
       }).catch(err => {
-        console.error('[ServiceWorker] Fetch falhou:', err);
+        console.error('[ServiceWorker] Fetch local falhou:', evt.request.url, err);
+        // Se a rede falhar (offline), retorna o cache se existir
+        return cachedResponse; 
       });
 
-      // Retorna o conteúdo do cache imediatamente se disponível,
-      // enquanto a rede busca a atualização em segundo plano.
+      // Retorna o cache se existir, senão aguarda a rede
       return cachedResponse || fetchPromise;
     })
   );
