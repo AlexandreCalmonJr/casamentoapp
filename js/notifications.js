@@ -8,31 +8,36 @@ class NotificationManager {
         this.messaging = null;
         this.currentToken = null;
         this.listener = null;
+        
+        // ⚠️ IMPORTANTE: Substitua pela sua chave VAPID gerada no Firebase Console
+        this.vapidKey = 'COLE_SUA_CHAVE_VAPID_AQUI';
+        
         this.initializeMessaging();
     }
 
     async initializeMessaging() {
         if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-            console.log('Notificações não suportadas neste navegador');
+            console.log('❌ Notificações não suportadas neste navegador');
             return;
         }
 
         try {
-            // Registra o Service Worker do Firebase Messaging
-            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-            console.log('Service Worker do Firebase registrado:', registration);
-
+            // Aguarda o Service Worker estar pronto
+            await navigator.serviceWorker.ready;
+            
             // Inicializa o Firebase Messaging
             this.messaging = firebase.messaging();
             
-            // Handler para mensagens recebidas quando o app está em primeiro plano
+            console.log('✅ Firebase Messaging inicializado');
+            
+            // Handler para mensagens em primeiro plano
             this.messaging.onMessage((payload) => {
-                console.log('Mensagem recebida (app ativo):', payload);
+                console.log('📬 Mensagem recebida (app ativo):', payload);
                 this.showForegroundNotification(payload);
             });
 
         } catch (error) {
-            console.error('Erro ao inicializar Firebase Messaging:', error);
+            console.error('❌ Erro ao inicializar Firebase Messaging:', error);
         }
     }
 
@@ -46,7 +51,7 @@ class NotificationManager {
 
     async requestPermission() {
         if (!('Notification' in window) || !this.messaging) {
-            console.log('Notificações não disponíveis');
+            console.log('❌ Notificações não disponíveis');
             return false;
         }
 
@@ -55,46 +60,61 @@ class NotificationManager {
             this.permission = permission;
             
             if (permission === 'granted') {
-                // Obtém o token FCM
+                console.log('✅ Permissão de notificação concedida');
                 await this.getToken();
                 return true;
+            } else {
+                console.log('❌ Permissão de notificação negada');
             }
             
             return false;
         } catch (error) {
-            console.error('Erro ao solicitar permissão:', error);
+            console.error('❌ Erro ao solicitar permissão:', error);
             return false;
         }
     }
 
     async getToken() {
         if (!this.messaging) {
-            console.log('Firebase Messaging não inicializado');
+            console.log('❌ Firebase Messaging não inicializado');
+            return null;
+        }
+
+        // Verifica se a chave VAPID foi configurada
+        if (this.vapidKey === 'BLEBkru5W_gAEqfJ_7j1TqUIdk4GvI8hIbD_oFu1M8Ni8Who7isVLORrgjK6RMJEX-019Xd6axDhwIbJvmlyitU') {
+            console.error('❌ VAPID Key não configurada! Veja as instruções no código.');
             return null;
         }
 
         try {
-            // Obtém o token FCM
             const token = await this.messaging.getToken({
-                vapidKey: 'BLEBkru5W_gAEqfJ_7j1TqUIdk4GvI8hIbD_oFu1M8Ni8Who7isVLORrgjK6RMJEX-019Xd6axDhwIbJvmlyitU' // IMPORTANTE: Você precisa gerar isso no Firebase Console
+                vapidKey: this.vapidKey
             });
 
             if (token) {
-                console.log('Token FCM obtido:', token);
+                console.log('✅ Token FCM obtido:', token.substring(0, 20) + '...');
                 this.currentToken = token;
                 
-                // Salva o token no Firestore associado ao usuário
+                // Salva o token no Firestore
                 if (auth.currentUser) {
                     await this.saveTokenToFirestore(token);
                 }
                 
                 return token;
             } else {
-                console.log('Não foi possível obter o token');
+                console.log('❌ Não foi possível obter o token');
                 return null;
             }
         } catch (error) {
-            console.error('Erro ao obter token FCM:', error);
+            console.error('❌ Erro ao obter token FCM:', error);
+            
+            // Mensagens de erro comuns
+            if (error.code === 'messaging/permission-blocked') {
+                console.error('🚫 Permissão bloqueada. O usuário precisa ativar nas configurações do navegador.');
+            } else if (error.code === 'messaging/notifications-blocked') {
+                console.error('🚫 Notificações bloqueadas no navegador.');
+            }
+            
             return null;
         }
     }
@@ -105,12 +125,13 @@ class NotificationManager {
         try {
             await db.collection('users').doc(auth.currentUser.uid).set({
                 fcmToken: token,
-                tokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                tokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                notificationsEnabled: true
             }, { merge: true });
             
-            console.log('Token FCM salvo no Firestore');
+            console.log('✅ Token FCM salvo no Firestore');
         } catch (error) {
-            console.error('Erro ao salvar token:', error);
+            console.error('❌ Erro ao salvar token:', error);
         }
     }
 
@@ -141,66 +162,8 @@ class NotificationManager {
         }
     }
 
-    // ========= Escuta notificações do Firestore (mantido para compatibilidade) =========
-    startListeningToNotifications(user, accessKeyInfo) {
-        if (!user || !accessKeyInfo) return;
-
-        if (this.listener) {
-            this.listener();
-        }
-
-        this.listener = db.collection('notifications')
-            .where('sentAt', '>', new Date())
-            .onSnapshot(snapshot => {
-                snapshot.docChanges().forEach(change => {
-                    if (change.type === 'added') {
-                        const notification = change.doc.data();
-                        
-                        // Verifica se deve receber
-                        if (this.shouldReceiveNotification(notification, accessKeyInfo)) {
-                            // Marca como enviada para este usuário
-                            this.markAsReceived(change.doc.id, user.uid);
-                        }
-                    }
-                });
-            });
-    }
-
-    async markAsReceived(notificationId, userId) {
-        try {
-            await db.collection('notifications').doc(notificationId)
-                .collection('recipients').doc(userId).set({
-                    receivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    opened: false
-                });
-        } catch (error) {
-            console.error('Erro ao marcar notificação como recebida:', error);
-        }
-    }
-
-    shouldReceiveNotification(notification, accessKeyInfo) {
-        const recipients = notification.recipients;
-        
-        switch (recipients) {
-            case 'all':
-                return true;
-            
-            case 'restaurant':
-                return accessKeyInfo.data.willAttendRestaurant === true;
-            
-            case 'ceremony':
-                return accessKeyInfo.data.willAttendRestaurant === false;
-            
-            case 'special':
-                const specialRoles = ['Padrinho', 'Madrinha', 'Amigo do Noivo', 'Amiga da Noiva'];
-                return specialRoles.includes(accessKeyInfo.data.role);
-            
-            default:
-                return true;
-        }
-    }
-
-    async checkRestaurantReminder(weddingDetails, user, accessKeyInfo) {
+    // Monitora notificações automáticas
+    async checkAutoNotifications(weddingDetails, user, accessKeyInfo) {
         if (!accessKeyInfo?.data) return;
 
         const configDoc = await db.collection('siteConfig').doc('notifications').get();
@@ -215,79 +178,97 @@ class NotificationManager {
         const timeDiff = weddingDate - now;
         const hoursDiff = timeDiff / (1000 * 60 * 60);
 
-        if (hoursDiff > 24 && hoursDiff < 25 && config.auto24h !== false) {
-            const lastNotified = localStorage.getItem(`restaurant_notified_${user.uid}`);
+        // Lembrete 24h antes
+        if (hoursDiff > 23 && hoursDiff < 25 && config.auto24h !== false) {
+            const lastNotified = localStorage.getItem(`reminder_24h_${user.uid}`);
             const today = new Date().toDateString();
 
             if (lastNotified !== today) {
-                // Cria notificação no Firestore para ser enviada via FCM
                 await this.createAutoNotification(
                     user.uid,
-                    accessKeyInfo.data.willAttendRestaurant ? 'restaurant-24h' : 'ceremony-24h',
-                    accessKeyInfo.data
+                    accessKeyInfo.data.willAttendRestaurant ? 'restaurant-24h' : 'ceremony-24h'
                 );
-                localStorage.setItem(`restaurant_notified_${user.uid}`, today);
+                localStorage.setItem(`reminder_24h_${user.uid}`, today);
             }
         }
 
-        if (hoursDiff > 3 && hoursDiff < 4 && config.auto3h !== false) {
-            const lastNotified = localStorage.getItem(`wedding_day_notified_${user.uid}`);
+        // Lembrete 3h antes
+        if (hoursDiff > 2.5 && hoursDiff < 3.5 && config.auto3h !== false) {
+            const lastNotified = localStorage.getItem(`reminder_3h_${user.uid}`);
             const today = new Date().toDateString();
 
             if (lastNotified !== today) {
-                await this.createAutoNotification(
-                    user.uid,
-                    'wedding-day',
-                    accessKeyInfo.data
-                );
-                localStorage.setItem(`wedding_day_notified_${user.uid}`, today);
+                await this.createAutoNotification(user.uid, 'wedding-day');
+                localStorage.setItem(`reminder_3h_${user.uid}`, today);
             }
         }
     }
 
-    async createAutoNotification(userId, type, keyData) {
+    async createAutoNotification(userId, type) {
         const templates = {
             'restaurant-24h': {
                 title: '🍽️ Lembrete: Restaurante Amanhã!',
-                body: `Olá ${keyData.guestName}! Lembre-se que amanhã após a cerimônia teremos a recepção no restaurante. Estamos ansiosos!`
+                body: 'Amanhã após a cerimônia teremos a recepção no restaurante. Estamos ansiosos!',
+                icon: '🍽️'
             },
             'ceremony-24h': {
                 title: '⛪ Lembrete: Cerimônia Amanhã!',
-                body: `Olá ${keyData.guestName}! A cerimônia será amanhã. Mal podemos esperar para vê-lo(a)!`
+                body: 'A cerimônia será amanhã. Mal podemos esperar para vê-lo(a)!',
+                icon: '⛪'
             },
             'wedding-day': {
                 title: '💒 O Grande Dia Chegou!',
-                body: 'A cerimônia começa em poucas horas! Até logo! 💕'
+                body: 'A cerimônia começa em poucas horas! Até logo! 💕',
+                icon: '💒'
             }
         };
 
         const template = templates[type];
         if (!template) return;
 
-        // Salva no Firestore para o Cloud Function enviar via FCM
+        // Busca o token do usuário
+        const userDoc = await db.collection('users').doc(userId).get();
+        const userData = userDoc.data();
+        
+        if (!userData?.fcmToken) {
+            console.log('⚠️ Usuário não tem token FCM registrado');
+            return;
+        }
+
+        // Adiciona à fila de notificações
         await db.collection('notificationQueue').add({
-            userId: userId,
-            title: template.title,
-            body: template.body,
-            icon: '💍',
-            urgent: true,
+            token: userData.fcmToken,
+            payload: {
+                notification: {
+                    title: template.title,
+                    body: template.body,
+                    icon: '/images/icons/icon-192x192.png'
+                },
+                data: {
+                    type: type,
+                    urgent: 'true',
+                    url: '#rsvp'
+                }
+            },
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            sent: false
+            processed: false
         });
+
+        console.log('✅ Notificação automática criada:', type);
     }
 
     startPeriodicCheck(weddingDetails, user, accessKeyInfo) {
+        // Verifica a cada hora
         setInterval(() => {
             if (user && accessKeyInfo) {
-                this.checkRestaurantReminder(weddingDetails, user, accessKeyInfo);
+                this.checkAutoNotifications(weddingDetails, user, accessKeyInfo);
             }
         }, 60 * 60 * 1000);
 
+        // Verifica imediatamente
         if (user && accessKeyInfo) {
-            this.checkRestaurantReminder(weddingDetails, user, accessKeyInfo);
+            this.checkAutoNotifications(weddingDetails, user, accessKeyInfo);
         }
-
-        this.startListeningToNotifications(user, accessKeyInfo);
     }
 
     async notifyNewPhoto(userName) {
@@ -296,7 +277,6 @@ class NotificationManager {
         
         if (config.autoGallery === false) return;
 
-        // Cria notificação para todos os outros usuários
         await db.collection('notifications').add({
             recipients: 'all',
             title: '📸 Nova Foto na Galeria!',
@@ -309,6 +289,8 @@ class NotificationManager {
                 url: '#guest-photos'
             }
         });
+
+        console.log('✅ Notificação de nova foto criada');
     }
 
     async notifyNewMessage(userName) {
@@ -329,6 +311,8 @@ class NotificationManager {
                 url: '#guestbook'
             }
         });
+
+        console.log('✅ Notificação de nova mensagem criada');
     }
 
     stopListening() {
@@ -342,12 +326,19 @@ class NotificationManager {
 export const notificationManager = new NotificationManager();
 
 export async function requestNotificationPermissionOnLogin(user) {
-    if (user && !localStorage.getItem('notification_requested')) {
-        setTimeout(async () => {
-            const granted = await notificationManager.requestPermission();
-            if (granted) {
-                localStorage.setItem('notification_requested', 'true');
-            }
-        }, 3000);
+    if (!user) return;
+    
+    // Não pede novamente se já foi pedido
+    if (localStorage.getItem('notification_requested')) {
+        return;
     }
+    
+    // Aguarda 3 segundos após o login
+    setTimeout(async () => {
+        const granted = await notificationManager.requestPermission();
+        if (granted) {
+            localStorage.setItem('notification_requested', 'true');
+            console.log('✅ Notificações configuradas com sucesso');
+        }
+    }, 3000);
 }

@@ -1,10 +1,10 @@
 // firebase-messaging-sw.js
-// Este arquivo DEVE estar na raiz do projeto
+// ⚠️ Este arquivo DEVE estar na RAIZ do projeto
 
 importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js');
 
-// Cole sua configuração do Firebase aqui
+// Configuração do Firebase
 firebase.initializeApp({
     apiKey: "AIzaSyBJL0UmIxUyEEGvER5eTlO4zMSVOY7Czq0",
     authDomain: "casamentoapp-7467a.firebaseapp.com",
@@ -19,17 +19,30 @@ const messaging = firebase.messaging();
 
 // Handler para mensagens recebidas em segundo plano
 messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Mensagem recebida em segundo plano:', payload);
+    console.log('[SW] Mensagem recebida em segundo plano:', payload);
     
     const notificationTitle = payload.notification?.title || 'Nova Notificação';
     const notificationOptions = {
         body: payload.notification?.body || '',
         icon: payload.notification?.icon || '/images/icons/icon-192x192.png',
         badge: '/images/icons/icon-192x192.png',
-        tag: payload.data?.tag || 'default',
+        tag: payload.data?.tag || 'wedding-notification',
         data: payload.data,
         requireInteraction: payload.data?.urgent === 'true',
-        vibrate: payload.data?.urgent === 'true' ? [300, 100, 300, 100, 300] : [200, 100, 200]
+        vibrate: payload.data?.urgent === 'true' 
+            ? [300, 100, 300, 100, 300] 
+            : [200, 100, 200],
+        actions: [
+            {
+                action: 'open',
+                title: 'Abrir',
+                icon: '/images/icons/icon-192x192.png'
+            },
+            {
+                action: 'close',
+                title: 'Fechar'
+            }
+        ]
     };
 
     return self.registration.showNotification(notificationTitle, notificationOptions);
@@ -37,9 +50,14 @@ messaging.onBackgroundMessage((payload) => {
 
 // Handler para cliques na notificação
 self.addEventListener('notificationclick', (event) => {
-    console.log('[firebase-messaging-sw.js] Notificação clicada:', event);
+    console.log('[SW] Notificação clicada:', event);
     
     event.notification.close();
+    
+    // Se o usuário clicou em "fechar", não faz nada
+    if (event.action === 'close') {
+        return;
+    }
     
     const urlToOpen = event.notification.data?.url || '/index.html';
     
@@ -52,10 +70,23 @@ self.addEventListener('notificationclick', (event) => {
                         return client.focus();
                     }
                 }
+                
                 // Se não houver janela aberta, abre uma nova
                 if (clients.openWindow) {
                     return clients.openWindow(urlToOpen);
                 }
             })
     );
+});
+
+// Log de instalação
+self.addEventListener('install', (event) => {
+    console.log('[SW] Service Worker instalado');
+    self.skipWaiting();
+});
+
+// Log de ativação
+self.addEventListener('activate', (event) => {
+    console.log('[SW] Service Worker ativado');
+    event.waitUntil(clients.claim());
 });
