@@ -215,7 +215,7 @@ async function handleSaveDetails(event) {
         carouselPhotos: carouselPhotos,
         venuePhoto: document.getElementById('form-venue-photo-url').value.trim(),
         shareImage: document.getElementById('form-share-image-url').value.trim() || null,
-        
+
         // ============ NOVO: Adicionando novos campos ============
         homeBackground: {
             enabled: homeBackgroundEnabled,
@@ -236,15 +236,15 @@ async function handleSaveDetails(event) {
     try {
         await db.collection('siteConfig').doc('details').update(updatedDetails);
         state.weddingDetails = { ...state.weddingDetails, ...updatedDetails };
-        
+
         UI.setButtonLoading(button, false);
         const successMsg = document.getElementById('details-success');
         successMsg.classList.remove('hidden');
         setTimeout(() => successMsg.classList.add('hidden'), 3000);
-        
+
         // Mensagem adicional de sucesso
         UI.showToast('Configurações salvas com sucesso!', 'success');
-        
+
     } catch (error) {
         console.error('Erro ao salvar detalhes:', error);
         UI.setButtonLoading(button, false);
@@ -379,34 +379,77 @@ async function handleToggleGuestNames(event) {
     const keyId = event.currentTarget.dataset.id;
     const listContainer = document.getElementById(`guest-names-list-${keyId}`);
     if (!listContainer) return;
+
     const isHidden = listContainer.classList.contains('hidden');
     if (isHidden) {
         listContainer.classList.remove('hidden');
-        const snapshot = await db.collection('accessKeys').doc(keyId).collection('guestNames').get();
-        listContainer.innerHTML = snapshot.empty
-            ? `<p class="text-xs text-gray-500">Nomes não informados.</p>`
-            : `<ul class="text-sm text-gray-600 list-disc list-inside">${snapshot.docs.map(doc => `<li>${doc.data().name}</li>`).join('')}</ul>`;
+        const contentDiv = listContainer.querySelector('.guest-names-content');
+        if (contentDiv) {
+            const snapshot = await db.collection('accessKeys').doc(keyId).collection('guestNames').get();
+            contentDiv.innerHTML = snapshot.empty
+                ? `<p class="text-xs text-gray-500">Nomes não informados.</p>`
+                : `<ul class="text-sm text-gray-600 list-disc list-inside">${snapshot.docs.map(doc => `<li>${doc.data().name}</li>`).join('')}</ul>`;
+        }
     } else {
         listContainer.classList.add('hidden');
     }
 }
 
-async function handleExportCSV() {
-    const snapshot = await db.collection('accessKeys').where('isUsed', '==', true).get();
-    if (snapshot.empty) return alert("Nenhum convidado cadastrado para exportar.");
-    let csvContent = "data:text/csv;charset=utf-8,Convidado Principal,Email,Total de Pessoas,Vai ao Restaurante,Nomes dos Acompanhantes\r\n";
-    for (const doc of snapshot.docs) {
-        const key = doc.data();
-        const namesSnapshot = await db.collection('accessKeys').doc(doc.id).collection('guestNames').get();
-        const guestNames = namesSnapshot.docs.map(d => d.data().name).join('; ');
-        csvContent += [`"${key.guestName}"`, key.usedByEmail, key.allowedGuests, key.willAttendRestaurant ? "Sim" : "Não", `"${guestNames}"`].join(',') + "\r\n";
+async function handleExportCSV(docs = null, filter = 'all') {
+    let keysToExport = [];
+
+    if (docs && Array.isArray(docs)) {
+        keysToExport = docs.map(d => ({ id: d.id, ...d.data() }));
+    } else {
+        const snapshot = await db.collection('accessKeys').get();
+        keysToExport = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     }
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", "relatorio_convidados.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    if (filter === 'confirmed') {
+        keysToExport = keysToExport.filter(k => k.isUsed);
+    } else if (filter === 'pending') {
+        keysToExport = keysToExport.filter(k => !k.isUsed);
+    }
+
+    if (keysToExport.length === 0) return alert("Nenhum convidado encontrado para exportar.");
+
+    // Mostra loading
+    const exportBtn = document.getElementById(filter === 'pending' ? 'export-pending-button' : 'export-csv-button');
+    UI.setButtonLoading(exportBtn, true);
+
+    try {
+        let csvContent = "data:text/csv;charset=utf-8,Convidado Principal,Status,Telefone,Email,Total de Pessoas,Vai ao Restaurante,Nomes dos Acompanhantes\r\n";
+
+        for (const key of keysToExport) {
+            let guestNames = "";
+            // Busca nomes apenas se confirmado e se houver convidados extras
+            if (key.isUsed) {
+                const namesSnapshot = await db.collection('accessKeys').doc(key.id).collection('guestNames').get();
+                guestNames = namesSnapshot.docs.map(d => d.data().name).join('; ');
+            }
+
+            const status = key.isUsed ? "Confirmado" : "Pendente";
+            const restaurant = key.isUsed ? (key.willAttendRestaurant ? "Sim" : "Não") : "-";
+            const email = key.usedByEmail || "-";
+            const phone = key.guestPhone || "-";
+            const csvGuestName = (key.guestName || "").replace(/"/g, '""'); // Escape quotes
+
+            csvContent += [`"${csvGuestName}"`, status, phone, email, key.allowedGuests, restaurant, `"${guestNames}"`].join(',') + "\r\n";
+        }
+
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        const filename = filter === 'pending' ? "lista_pendentes.csv" : "relatorio_convidados.csv";
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error("Erro ao exportar CSV:", e);
+        alert("Erro ao gerar relatório. Tente novamente.");
+    } finally {
+        UI.setButtonLoading(exportBtn, false);
+    }
 }
 
 function handleShareKey(event) {
@@ -414,12 +457,47 @@ function handleShareKey(event) {
     showShareModalWithImage(keyData.guestName, keyData.id, keyData.allowedGuests, keyData.guestPhone);
 }
 
+function handleRestaurantQuestion(event) {
+    const keyData = JSON.parse(event.currentTarget.dataset.key);
+    const firstName = keyData.guestName.split(' ')[0];
+
+    // Recupera detalhes do casamento do state
+    const { restaurantName, restaurantAddress, restaurantPriceInfo } = state.weddingDetails || {};
+
+    const local = restaurantName || "Local a definir";
+    const endereco = restaurantAddress || "Endereço a definir";
+    const valor = restaurantPriceInfo || "Valor a confirmar";
+
+    // Mensagem informativa com detalhes e pedido de reconfirmação
+    const message = `Olá ${firstName}! Tudo bem? 
+Vimos que vocês confirmaram a presença no restaurante! 🍽️ 
+
+Como precisamos fechar o número exato de pessoas com o local, *gostaríamos de reconfirmar sua presença*.
+
+Seguem os detalhes:
+📍 *Local:* ${local}
+🗺️ *Endereço:* ${endereco}
+💲 *Valor:* ${valor}
+
+Por favor, nos responda confirmando se continua tudo certo? 
+Obrigado!`;
+
+    const cleanPhone = (keyData.guestPhone || "").replace(/\D/g, '');
+    if (cleanPhone) {
+        const phoneForWhatsapp = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        const whatsappUrl = `https://wa.me/${phoneForWhatsapp}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+    } else {
+        UI.showToast('Convidado sem telefone cadastrado.', 'error');
+    }
+}
+
 function cleanupListeners() {
-    Object.values(state.unsubscribe).forEach(unsub => { 
-        if (typeof unsub === 'function') unsub(); 
+    Object.values(state.unsubscribe).forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
     });
     state.unsubscribe = {};
-    
+
     if (state.reportChart) {
         state.reportChart.destroy();
         state.reportChart = null;
@@ -668,7 +746,7 @@ async function loadTab(tabName) {
     if (tabName === 'notifications') {
         // Agora usa a função de renderização do admin-ui.js
         DOMElements.tabContent.innerHTML = UI.renderNotificationManager();
-        
+
         // Chama as funções de lógica que agora estão neste arquivo
         await loadNotificationSettings();
         await updateStats();
@@ -713,14 +791,14 @@ async function loadTab(tabName) {
             showNotificationPreview(title, message, icon);
         });
 
-    // Templates rápidos
+        // Templates rápidos
         document.querySelectorAll('.notification-template').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const button = e.currentTarget;
                 document.getElementById('notification-title').value = button.dataset.title;
                 document.getElementById('notification-message').value = button.dataset.message;
                 document.getElementById('notification-recipients').value = button.dataset.recipients;
-                
+
                 document.getElementById('manual-notification-form').scrollIntoView({ behavior: 'smooth' });
             });
         });
@@ -729,18 +807,18 @@ async function loadTab(tabName) {
         document.getElementById('process-queue-manually')?.addEventListener('click', async (e) => {
             const button = e.currentTarget;
             UI.setButtonLoading(button, true);
-            
+
             try {
                 // Chama a API diretamente
                 const response = await fetch('/api/processQueue');
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     showToast(
-                        `✅ Fila processada! ${result.success} enviadas, ${result.failed} falhas`, 
+                        `✅ Fila processada! ${result.success} enviadas, ${result.failed} falhas`,
                         'success'
                     );
-                    
+
                     // Atualiza as estatísticas
                     await updateStats();
                     await loadNotificationHistory();
@@ -754,7 +832,7 @@ async function loadTab(tabName) {
                 UI.setButtonLoading(button, false);
             }
         });
-        
+
         return; // ✅ AGORA SIM! Fim da aba de notificações
     }
     if (tabName === 'details') {
@@ -764,7 +842,7 @@ async function loadTab(tabName) {
         setupPaletteEditorListeners();
         setupDetailsPhotoListeners();
 
-        document.getElementById('venue-photo-input').addEventListener('change', () => 
+        document.getElementById('venue-photo-input').addEventListener('change', () =>
             handleImageUpload('venue-photo-input', 'form-venue-photo-url', 'venue-photo-progress-bar', 'venue-photo-preview')
         );
 
@@ -810,25 +888,77 @@ async function loadTab(tabName) {
     } else if (tabName === 'report') {
         DOMElements.tabContent.innerHTML = UI.renderGuestsReport();
         const searchInput = document.getElementById('search-report-input');
-        const renderReport = (docs) => {
+        let currentFilter = 'all';
+        let allDocs = [];
+
+        const renderReport = () => {
             const searchTerm = searchInput.value.toLowerCase();
-            const filteredDocs = searchTerm ? docs.filter(doc => (doc.data().guestName.toLowerCase().includes(searchTerm) || (doc.data().usedByEmail && doc.data().usedByEmail.toLowerCase().includes(searchTerm)))) : docs;
-            const reportData = UI.updateGuestsReport(filteredDocs.map(d => ({ id: d.id, ...d.data() })));
+            // Filter by search term first
+            let filteredDocs = allDocs;
+            if (searchTerm) {
+                filteredDocs = allDocs.filter(doc => {
+                    const data = doc.data();
+                    return (data.guestName.toLowerCase().includes(searchTerm) || (data.usedByEmail && data.usedByEmail.toLowerCase().includes(searchTerm)));
+                });
+            }
+
+            // Map to data objects
+            const keysData = filteredDocs.map(d => ({ id: d.id, ...d.data() }));
+
+            // Update UI with all keys (UI handles display filtering based on currentFilter)
+            const reportData = UI.updateGuestsReport(keysData, currentFilter);
+
+            // Update Chart
             if (state.reportChart) state.reportChart.destroy();
             state.reportChart = UI.renderReportChart(reportData);
+
+            // Re-attach listeners for toggle
             document.querySelectorAll('.report-item').forEach(item => item.addEventListener('click', handleToggleGuestNames));
+
+            // Update Filter Buttons State
+            // Update Filter Buttons State
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.id === `filter-${currentFilter}`) {
+                    btn.classList.remove('text-gray-500', 'bg-white');
+                    btn.classList.add('bg-indigo-100', 'text-indigo-700');
+                } else {
+                    btn.classList.add('text-gray-500', 'bg-white');
+                    btn.classList.remove('bg-indigo-100', 'text-indigo-700');
+                }
+            });
+
+            // Re-attach listeners for restaurant question
+            document.querySelectorAll('.ask-restaurant-btn').forEach(btn =>
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevents toggling the details
+                    handleRestaurantQuestion(e);
+                })
+            );
         };
-        document.getElementById('export-csv-button').addEventListener('click', handleExportCSV);
-        state.unsubscribe.report = db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc').onSnapshot(snap => renderReport(snap.docs));
-        searchInput.addEventListener('input', () => db.collection('accessKeys').where('isUsed', '==', true).orderBy('usedAt', 'desc').get().then(snap => renderReport(snap.docs)));
-        
+
+        // Filter Buttons
+        document.getElementById('filter-all').addEventListener('click', () => { currentFilter = 'all'; renderReport(); });
+        document.getElementById('filter-confirmed').addEventListener('click', () => { currentFilter = 'confirmed'; renderReport(); });
+        document.getElementById('filter-pending').addEventListener('click', () => { currentFilter = 'pending'; renderReport(); });
+
+        document.getElementById('export-csv-button').addEventListener('click', () => handleExportCSV(allDocs, 'all'));
+        document.getElementById('export-pending-button').addEventListener('click', () => handleExportCSV(allDocs, 'pending'));
+
+        // Load All Keys
+        state.unsubscribe.report = db.collection('accessKeys').orderBy('createdAt', 'desc').onSnapshot(snap => {
+            allDocs = snap.docs;
+            renderReport();
+        });
+
+        searchInput.addEventListener('input', renderReport);
+
     } else if (tabName === 'guestbook') {
         DOMElements.tabContent.innerHTML = UI.renderGuestbookAdmin();
         state.unsubscribe.guestbook = db.collection('guestbook').orderBy('createdAt', 'desc').onSnapshot(snap => {
             UI.updateGuestbookAdminList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             document.querySelectorAll('.delete-message-btn').forEach(btn => btn.addEventListener('click', handleDeleteMessage));
         });
-        
+
     } else if (tabName === 'gifts') {
         DOMElements.tabContent.innerHTML = UI.renderGiftsManager();
         document.getElementById('add-gift-form').addEventListener('submit', handleAddGift);
@@ -837,7 +967,7 @@ async function loadTab(tabName) {
             document.querySelectorAll('.edit-gift-btn').forEach(btn => btn.addEventListener('click', handleEditGift));
             document.querySelectorAll('.delete-gift-btn').forEach(btn => btn.addEventListener('click', handleDeleteGift));
         });
-        
+
     } else if (tabName === 'admin-gallery') {
         DOMElements.tabContent.innerHTML = UI.renderAdminGallery();
         state.unsubscribe.adminGallery = db.collection('guestPhotos').orderBy('createdAt', 'desc').onSnapshot(snap => {
@@ -871,7 +1001,7 @@ async function initializeApp() {
     // Adiciona item de notificações no menu
     DOMElements.sidebarNav.innerHTML = UI.renderSidebarNav();
     setupEventListeners();
-    
+
     auth.onAuthStateChanged(async (user) => {
         const isAuthorized = user && adminEmails.includes(user.email);
         if (isAuthorized) {
@@ -974,7 +1104,7 @@ function showNotificationPreview(title, message, icon) {
 function addToHistory(notification) {
     const historyContainer = document.getElementById('notifications-history');
     if (!historyContainer) return;
-    
+
     const historyItem = `
         <div class="border rounded-lg p-4 hover:bg-gray-50">
             <div class="flex items-start justify-between">
@@ -1036,7 +1166,7 @@ async function loadNotificationHistory() {
             snapshot.forEach(doc => {
                 const notification = doc.data();
                 const date = notification.sentAt ? notification.sentAt.toDate() : new Date();
-                
+
                 const historyItem = `
                     <div class="border rounded-lg p-4 hover:bg-gray-50">
                         <div class="flex items-start justify-between">
@@ -1068,7 +1198,7 @@ async function sendManualNotification(recipients, title, message, icon, urgent) 
     try {
         // 1. Busca tokens dos destinatários
         const tokens = await getRecipientTokens(recipients);
-        
+
         if (tokens.length === 0) {
             showToast('Nenhum destinatário encontrado com notificações ativas.', 'error');
             UI.setButtonLoading(button, false);
@@ -1100,7 +1230,7 @@ async function sendManualNotification(recipients, title, message, icon, urgent) 
         });
 
         showToast(`Notificação enviada para ${results.success} de ${tokens.length} destinatário(s)!`, 'success');
-        
+
         // 4. Registra no histórico
         await docRef.update({
             delivered: results.success,
@@ -1109,7 +1239,7 @@ async function sendManualNotification(recipients, title, message, icon, urgent) 
 
         // Limpa formulário
         document.getElementById('manual-notification-form').reset();
-        
+
         // Atualiza histórico
         await loadNotificationHistory();
 
@@ -1125,12 +1255,12 @@ async function sendManualNotification(recipients, title, message, icon, urgent) 
 async function getRecipientTokens(recipients) {
     try {
         let query = db.collection('users');
-        
+
         // Aplica filtro baseado no tipo de destinatários
         if (recipients !== 'all') {
             // Busca chaves de acesso que atendem ao critério
             let keysQuery = db.collection('accessKeys').where('isUsed', '==', true);
-            
+
             if (recipients === 'restaurant') {
                 keysQuery = keysQuery.where('willAttendRestaurant', '==', true);
             } else if (recipients === 'ceremony') {
@@ -1138,12 +1268,12 @@ async function getRecipientTokens(recipients) {
             } else if (recipients === 'special') {
                 keysQuery = keysQuery.where('role', 'in', ['Padrinho', 'Madrinha', 'Amigo do Noivo', 'Amiga da Noiva']);
             }
-            
+
             const keysSnapshot = await keysQuery.get();
             const userIds = keysSnapshot.docs.map(doc => doc.data().usedByUserId).filter(id => id);
-            
+
             if (userIds.length === 0) return [];
-            
+
             // Busca usuários correspondentes em lotes (Firestore limita 'in' a 10 itens)
             const tokens = [];
             for (let i = 0; i < userIds.length; i += 10) {
@@ -1151,13 +1281,13 @@ async function getRecipientTokens(recipients) {
                 const usersSnapshot = await db.collection('users')
                     .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
                     .get();
-                
+
                 usersSnapshot.forEach(doc => {
                     const token = doc.data().fcmToken;
                     if (token) tokens.push(token);
                 });
             }
-            
+
             return tokens;
         } else {
             // Busca todos os tokens
@@ -1176,13 +1306,13 @@ async function getRecipientTokens(recipients) {
 async function sendToTokens(tokens, payload) {
     // IMPORTANTE: Esta função deve ser executada via Cloud Functions
     // Aqui está um exemplo de como seria no servidor
-    
+
     // Por enquanto, vamos criar documentos na fila para uma Cloud Function processar
     const results = { success: 0, failed: 0 };
-    
+
     try {
         const batch = db.batch();
-        
+
         tokens.forEach(token => {
             const queueRef = db.collection('notificationQueue').doc();
             batch.set(queueRef, {
@@ -1203,15 +1333,15 @@ async function sendToTokens(tokens, payload) {
                 processed: false
             });
         });
-        
+
         await batch.commit();
         results.success = tokens.length;
-        
+
     } catch (error) {
         console.error('Erro ao enviar notificações:', error);
         results.failed = tokens.length;
     }
-    
+
     return results;
 }
 

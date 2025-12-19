@@ -440,9 +440,9 @@ export function renderDetailsEditor(details) {
             </div>
             
             <div id="home-bg-preview" class="mt-2">
-                ${details.homeBackground?.imageUrl ? 
-                    `<img src="${details.homeBackground.imageUrl}" class="rounded-lg max-w-xs shadow-md">` 
-                    : ''}
+                ${details.homeBackground?.imageUrl ?
+            `<img src="${details.homeBackground.imageUrl}" class="rounded-lg max-w-xs shadow-md">`
+            : ''}
             </div>
         </div>
     </div>
@@ -500,9 +500,9 @@ export function renderDetailsEditor(details) {
                     </div>
                     
                     <div id="about-text-image-preview" class="mt-2">
-                        ${details.aboutUs?.text?.imageUrl ? 
-                            `<img src="${details.aboutUs.text.imageUrl}" class="rounded-lg max-w-xs shadow-md">` 
-                            : ''}
+                        ${details.aboutUs?.text?.imageUrl ?
+            `<img src="${details.aboutUs.text.imageUrl}" class="rounded-lg max-w-xs shadow-md">`
+            : ''}
                     </div>
                 </div>
             </div>
@@ -588,27 +588,200 @@ export function renderTimelineManager() {
 
 export function renderGuestsReport() {
     return `
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Relatório de Convidados</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                 <h3 class="text-lg font-bold text-gray-600 mb-2">Pessoas Confirmadas</h3>
-                 <p id="total-guests-count" class="text-5xl font-bold text-indigo-600"><i class="fas fa-spinner fa-spin"></i></p>
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Relatório Geral de Convidados</h2>
+        
+        <!-- Cards de Estatísticas -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-gray-500">
+                <p class="text-sm text-gray-500 mb-1">Total Convidados</p>
+                <p id="stats-total" class="text-2xl font-bold text-gray-800">-</p>
             </div>
-            <div class="bg-white p-6 rounded-lg shadow-md text-center lg:col-span-2">
-                 <h3 class="text-lg font-bold text-gray-600 mb-2">Divisão de Presença</h3>
-                 <div class="max-w-xs mx-auto"><canvas id="rsvp-chart"></canvas></div>
+            <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+                <p class="text-sm text-gray-500 mb-1">Confirmados</p>
+                <p id="stats-confirmed" class="text-2xl font-bold text-green-600">-</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-yellow-500">
+                <p class="text-sm text-gray-500 mb-1">Pendentes</p>
+                <p id="stats-pending" class="text-2xl font-bold text-yellow-600">-</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
+                <p class="text-sm text-gray-500 mb-1">Restaurante</p>
+                <p id="stats-restaurant" class="text-2xl font-bold text-blue-600">-</p>
             </div>
         </div>
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <div class="flex flex-col md:flex-row justify-between md:items-center mb-4 gap-4">
-                <h3 class="text-xl font-bold">Lista de Confirmações</h3>
-                <input type="search" id="search-report-input" placeholder="Buscar por nome ou email..." class="p-2 border rounded w-full md:w-1/2">
-                <button id="export-csv-button" class="w-full md:w-auto py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-file-csv mr-2"></i>Exportar
-                </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+             <!-- Gráfico -->
+            <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
+                 <h3 class="text-lg font-bold text-gray-600 mb-4">Divisão de Presença (Confirmados)</h3>
+                 <div class="max-w-md mx-auto h-64"><canvas id="rsvp-chart"></canvas></div>
             </div>
-            <div id="guests-report-list" class="max-h-[50vh] overflow-y-auto custom-scrollbar"></div>
+
+            <!-- Ações Rápidas -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit">
+                 <h3 class="text-lg font-bold text-gray-800 mb-4">Ações Rápidas</h3>
+                 <div class="space-y-3">
+                    <button id="export-csv-button" class="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center transition-colors text-sm font-medium">
+                        <i class="fas fa-file-csv mr-2"></i>Relatório Completo
+                    </button>
+                    <button id="export-pending-button" class="w-full py-2 px-4 bg-yellow-500 text-white rounded hover:bg-yellow-600 flex items-center justify-center transition-colors text-sm font-medium">
+                        <i class="fas fa-clock mr-2"></i>Lista Pendentes
+                    </button>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Lista Detalhada -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4 border-b pb-4">
+                <h3 class="text-xl font-bold">Gerenciar Convidados</h3>
+                
+                <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <!-- Filtros -->
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button id="filter-all" class="filter-btn px-3 py-1 text-sm font-medium rounded-md bg-white text-indigo-700 shadow-sm transition-all">Todos</button>
+                        <button id="filter-confirmed" class="filter-btn px-3 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">Confirmados</button>
+                        <button id="filter-pending" class="filter-btn px-3 py-1 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all">Pendentes</button>
+                    </div>
+
+                    <div class="relative w-full sm:w-64">
+                        <input type="search" id="search-report-input" placeholder="Buscar por nome..." class="w-full p-2 pl-8 border rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Convidado / Família</th>
+                            <th scope="col" class="px-4 py-3 text-center">Pessoas</th>
+                            <th scope="col" class="px-4 py-3 text-center">Status</th>
+                            <th scope="col" class="px-4 py-3 text-center">Restaurante</th>
+                            <th scope="col" class="px-4 py-3 text-center">Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guests-report-list">
+                        <!-- Itens renderizados via JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>`;
+}
+
+export function updateGuestsReport(keys, filter = 'all') {
+    const listEl = document.getElementById('guests-report-list');
+
+    // Calcula estatísticas REAIS com base em TODOS os dados passados (antes do filtro de busca)
+    // Para esta função funcionar corretamente, 'keys' deve conter TODOS os convidados, mas vamos calcular baseado no que foi passado se for o set completo
+    // Idealmente, a lógica de admin-app.js passa os dados filtrados pela busca. Mas os cards devem mostrar totais.
+    // Vamos assumir que a atualização dos cards é feita separada ou vamos calcular aqui o que é visível E o total.
+    // ** CORREÇÃO: Vamos calcular apenas estatísticas do que está na lista keys (que pode estar filtrada).
+    // Mas para os cards serem úteis, eles deveriam refletir o TOTAL GLOBAL.
+    // Vou ajustar admin-app.js depois se necessário, mas aqui vamos calcular baseado no input.
+
+    let totalGuests = 0;
+    let confirmedGuests = 0;
+    let pendingGuests = 0;
+    let restaurantGuests = 0;
+    let ceremonyOnlyGuests = 0;
+
+    // Calcular stats
+    keys.forEach(key => {
+        const count = key.allowedGuests || 0;
+        totalGuests += count;
+
+        if (key.isUsed) {
+            confirmedGuests += count;
+            if (key.willAttendRestaurant) {
+                restaurantGuests += count;
+            } else {
+                ceremonyOnlyGuests += count;
+            }
+        } else {
+            pendingGuests += count; // Assumindo que todos os convidados do convite pendente contam como pendentes
+        }
+    });
+
+    // Atualiza cards
+    const safeSetText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    safeSetText('stats-total', totalGuests);
+    safeSetText('stats-confirmed', confirmedGuests);
+    safeSetText('stats-pending', pendingGuests);
+    safeSetText('stats-restaurant', restaurantGuests);
+
+    // Filtra para exibição na tabela (se admin-app.js não filtrou por status, filtramos aqui para garantir)
+    // admin-app.js já filtra por busca, mas o filtro de tabs (all/confirmed/pending) é passado como argumento
+    // Se admin-app.js já manda filteredDocs, então keys já é o subset.
+    // Mas admin-app.js manda keysData = filteredDocs (que é filtrado por busca).
+    // O filtro de status lá é: currentFilter.
+    // Se a gente filtrar aqui de novo, ok.
+
+    let displayKeys = keys;
+    if (filter === 'confirmed') displayKeys = keys.filter(k => k.isUsed);
+    if (filter === 'pending') displayKeys = keys.filter(k => !k.isUsed);
+
+    if (!listEl) return { restaurantGuests, ceremonyOnlyGuests };
+
+    if (displayKeys.length === 0) {
+        listEl.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-gray-500">Nenhum convidado encontrado nesta categoria.</td></tr>`;
+        return { restaurantGuests, ceremonyOnlyGuests };
+    }
+
+    listEl.innerHTML = displayKeys.map(key => {
+        const statusBadge = key.isUsed
+            ? `<span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmado</span>`
+            : `<span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Pendente</span>`;
+
+        const restaurantBadge = key.isUsed
+            ? (key.willAttendRestaurant
+                ? `<span class="text-blue-600 font-bold"><i class="fas fa-utensils mr-1"></i>Sim</span>`
+                : `<span class="text-gray-400">Não</span>`)
+            : `<span class="text-gray-300">-</span>`;
+
+        return `
+            <tr class="bg-white border-b hover:bg-gray-50 report-item cursor-pointer" data-id="${key.id}">
+                <td class="px-4 py-3 font-medium text-gray-900">
+                    <div>${key.guestName}</div>
+                    <div class="text-xs text-gray-500 font-mono">${key.id}</div>
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="font-bold text-gray-700">${key.allowedGuests}</span>
+                </td>
+                <td class="px-4 py-3 text-center">${statusBadge}</td>
+                <td class="px-4 py-3 text-center">${restaurantBadge}</td>
+                <td class="px-4 py-3 text-center">
+                     <i class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+                </td>
+            </tr>
+            <!-- Linha de Detalhes (inicialmente oculta) -->
+            <tr class="hidden bg-gray-50" id="guest-names-list-${key.id}">
+                <td colspan="5" class="px-4 py-3">
+                    <div class="text-sm pl-4 border-l-2 border-indigo-200">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-gray-700 mb-1">Detalhes do Convite:</p>
+                                <p><span class="text-gray-500">Email de Confirmação:</span> ${key.usedByEmail || 'N/A'}</p>
+                                <p><span class="text-gray-500">Telefone:</span> ${key.guestPhone || 'N/A'}</p>
+                                <p class="mt-2 font-semibold text-gray-700">Acompanhantes Cadastrados:</p>
+                                <div class="guest-names-content mt-1 text-gray-600 italic">Carregando...</div>
+                            </div>
+                            
+                            ${key.isUsed && key.willAttendRestaurant ? `
+                            <button data-key='${JSON.stringify(key)}' class="ask-restaurant-btn flex items-center px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-md transition-colors text-xs font-medium border border-blue-200 flex-shrink-0 ml-4">
+                                <i class="fab fa-whatsapp mr-1.5 text-lg"></i>
+                                Enviar e Reconfirmar
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    return { restaurantGuests, ceremonyOnlyGuests };
 }
 
 export function renderGuestbookAdmin() {
@@ -672,37 +845,6 @@ export function updateKeysList(keys) {
                 </div>
             </div>`;
     }).join('');
-}
-
-export function updateGuestsReport(usedKeys) {
-    const listEl = document.getElementById('guests-report-list');
-    const totalCountEl = document.getElementById('total-guests-count');
-    if (!listEl || !totalCountEl) return { restaurantGuests: 0, ceremonyOnlyGuests: 0 };
-
-    let totalGuests = 0;
-    let restaurantGuests = 0;
-
-    if (usedKeys.length === 0) {
-        listEl.innerHTML = `<p class="text-center text-gray-500 p-4">Nenhum convidado se cadastrou ainda.</p>`;
-        totalCountEl.textContent = '0';
-        return { restaurantGuests: 0, ceremonyOnlyGuests: 0 };
-    }
-
-    listEl.innerHTML = usedKeys.map(key => {
-        totalGuests += key.allowedGuests || 1;
-        if (key.willAttendRestaurant) restaurantGuests += key.allowedGuests || 1;
-
-        const usedDate = key.usedAt ? key.usedAt.toDate().toLocaleString('pt-BR') : 'N/A';
-        const peopleText = key.allowedGuests > 1 ? `${key.allowedGuests} pessoas` : `${key.allowedGuests} pessoa`;
-        const restaurantIcon = key.willAttendRestaurant ? `<i class="fas fa-utensils text-green-500" title="Irá ao restaurante"></i>` : `<i class="fas fa-church text-gray-400" title="Apenas cerimônia"></i>`;
-
-        return `<div class="p-3 border-b hover:bg-gray-50"><div class="flex justify-between items-start cursor-pointer report-item" data-id="${key.id}"><div><p class="font-semibold">${key.guestName}</p><p class="text-sm text-gray-600">${key.usedByEmail || ''}</p></div><div class="flex items-center space-x-3"><span class="text-sm font-bold text-gray-700">${peopleText}</span>${restaurantIcon}</div></div><p class="text-xs text-gray-400 mt-1">Cadastrado em: ${usedDate}</p><div id="guest-names-list-${key.id}" class="hidden mt-2 pl-4 border-l-2 border-gray-200"><p class="text-xs text-gray-500">Carregando nomes...</p></div></div>`;
-    }).join('');
-
-    totalCountEl.textContent = totalGuests;
-    const ceremonyOnlyGuests = totalGuests - restaurantGuests;
-
-    return { restaurantGuests, ceremonyOnlyGuests };
 }
 
 export function renderReportChart({ restaurantGuests, ceremonyOnlyGuests }) {
@@ -787,7 +929,7 @@ export function updateTimelineEventsList(events) {
                 ${event.imageUrl ? `<img src="${getOptimizedCloudinaryUrl(event.imageUrl)}" alt="${event.title}" class="w-16 h-16 object-cover rounded-md mr-4">` : ''}
                 <div>
                     <p class="font-semibold text-gray-800">${event.title}</p>
-                    <p class="text-sm text-gray-500">${new Date(event.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
+                    <p class="text-sm text-gray-500">${new Date(event.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
                     <p class="text-xs text-gray-600 mt-1">${event.description || ''}</p>
                 </div>
             </div>
